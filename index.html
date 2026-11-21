@@ -1,449 +1,273 @@
-<!DOCTYPE html>
-<html lang="ru">
+<!doctype html>
+<html lang="ru" data-theme="dark">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Торты на заказ в Хабаровске</title>
-  <meta name="description" content="Торты на заказ в Хабаровске: выберите торт и вес, укажите дату и оформите заказ.">
-
-  <!-- Цвет панели браузера на телефоне — фирменный малиновый -->
-  <meta name="theme-color" content="#e0006a">
-
-  <!-- Превью ссылки в WhatsApp и Telegram (Open Graph).
-       Без картинки — только текст -->
-  <meta property="og:type" content="website">
-  <meta property="og:locale" content="ru_RU">
-  <meta property="og:title" content="Торты на заказ в Хабаровске">
-  <meta property="og:description" content="Торты на заказ, пер. Фабричный, 25, Хабаровск. Выберите торт, вес и дату — оформите заказ за 2 минуты через WhatsApp.">
-  <meta property="og:url" content="https://neuralcoderdan.github.io/tortdv/">
-  <meta name="twitter:card" content="summary">
-
-  <!-- Шрифт: Onest для заголовков и текста -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-
-  <link rel="stylesheet" href="style.css?v=36">
-  <link rel="stylesheet" href="assistant.css?v=38">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Моя кондитерская — торты на заказ</title>
+<meta name="description" content="Демо-сайт кондитерской: каталог тортов с фильтром по категориям и калькулятором на количество гостей.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="css/styles.css?v=6">
+<script>
+  /* тема до первой отрисовки — чтобы не было вспышки */
+  (function () {
+    try {
+      var t = localStorage.getItem('mk-theme');
+      if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+  })();
+</script>
 </head>
-<body>
+<body id="top">
 
+<a class="skip" href="#catalog">Перейти к каталогу</a>
 
+<!-- ───────────────── ШАПКА ───────────────── -->
+<header class="hdr">
+  <div class="wrap hdr__in">
+    <a class="brand" href="#top" aria-label="Моя кондитерская — на главную">
+      <span class="brand__mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M6 26h20v-6c0-2-1.6-3.5-3.6-3.5H9.6C7.6 16.5 6 18 6 20v6Z"/>
+          <path d="M9 16.5v-3M16 16.5v-4M23 16.5v-3"/>
+          <circle cx="9" cy="11" r="1.1" fill="currentColor" stroke="none"/>
+          <circle cx="16" cy="10" r="1.1" fill="currentColor" stroke="none"/>
+          <circle cx="23" cy="11" r="1.1" fill="currentColor" stroke="none"/>
+          <path d="M6 21.5c2.2 1.6 4.4 1.6 6.6 0 2.2 1.6 4.4 1.6 6.7 0 2.2 1.6 4.5 1.6 6.7 0"/>
+        </svg>
+      </span>
+      <span class="brand__txt">Моя<em>кондитерская</em></span>
+    </a>
 
-  <!-- Шапка: логотип, «Позвонить» и «WhatsApp», меню, корзина (на компьютере) -->
-  <header class="header" id="top">
-    <div class="container header__inner">
-      <!-- Номера подставляет script.js из data.js -->
-      <div class="header__contacts">
-        <a class="hbtn" id="head-call" href="#">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 3.5h3l1.5 4-2 1.3a11 11 0 0 0 6.1 6.1l1.3-2 4 1.5v3a2 2 0 0 1-2.2 2A17 17 0 0 1 4.6 5.7a2 2 0 0 1 2-2.2Z"/></svg>
-          Позвонить
-        </a>
-        <a class="hbtn hbtn--wa" id="head-wa" href="#" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 0 0-7.8 13.5L3 21l4.6-1.2A9 9 0 1 0 12 3Z"/><path d="M9 8.5c0 3.5 3 6.5 6.5 6.5l1-1.6-2-1-1 .8c-1-.5-2-1.5-2.4-2.4l.8-1-1-2z"/></svg>
-          WhatsApp
-        </a>
-        <!-- Корзина: появляется, когда в ней есть торты -->
-        <button class="hbtn hbtn--cart" id="cart-btn" type="button" hidden>
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 9.5h17l-1.6 9a2 2 0 0 1-2 1.6H7.1a2 2 0 0 1-2-1.6l-1.6-9Z"/><path d="m8 9.5 3-6m5 6-3-6"/></svg>
-          <span id="cart-btn-text">Корзина</span>
-          <span class="hbtn__badge" id="cart-count">0</span>
-        </button>
-      </div>
-      <nav class="nav" aria-label="Главное меню">
-        <a href="#cakes">Торты</a>
-        <a href="#how">Как заказать</a>
-        <a href="#reviews">Отзывы</a>
-        <a href="#contacts">Контакты</a>
-      </nav>
-    </div>
-  </header>
+    <nav class="nav" aria-label="Основная навигация">
+      <a href="#catalog">Каталог</a>
+      <a href="#how">Как заказать</a>
+      <a href="#delivery">Доставка</a>
+      <a href="#contacts">Контакты</a>
+    </nav>
 
-  <main>
-    <!-- Первый экран: фото торта на весь экран, заголовок и кнопка поверх -->
-    <section class="hero">
-      <div class="container hero__inner">
-        <div class="hero__text">
-          <h1 class="hero__title">Торты на заказ в Хабаровске</h1>
-          <p class="hero__lead">Выберите торт и нажмите «Заказать»</p>
-
-          <div class="hero__row">
-            <a href="#cakes" class="btn btn--primary btn--lg">Выбрать торт</a>
-            <ul class="hero__facts">
-              <li><b>от 1,5 кг</b>вес торта</li>
-              <li><b>за 7 дней</b>принимаем заказ</li>
-              <li><b>50%</b>предоплата</li>
-            </ul>
-          </div>
-        </div>
-
-        <!-- Плавающий торт: покачивается и слегка поворачивается, тень под ним «дышит» -->
-        <div class="hero__cake">
-          <div class="hero__cake-img hero__cake-ph" aria-hidden="true">
-            <svg viewBox="0 0 48 48"><path d="M8 26h32v14H8z"/><path d="M11 26v-7h26v7"/><path d="M8 32c4 3 8 3 12 0s8-3 12 0 6 2 8 0"/><path d="M24 19v-6"/><path d="M24 10c1.5 0 1.5-2 0-3.5-1.5 1.5-1.5 3.5 0 3.5Z"/></svg>
-          </div>
-          <span class="hero__cake-shadow"></span>
-        </div>
-      </div>
-    </section>
-
-    <!-- Каталог с быстрыми фильтрами -->
-    <section class="section" id="cakes">
-      <div class="container">
-        <div class="section__head section__head--catalog">
-          <h2 class="section__title">Торты</h2>
-          <!-- Сколько карточек в ряд — только на телефоне. Выбор запоминается в браузере -->
-          <div class="cols-pick" id="cols-pick" role="radiogroup" aria-label="Карточек в ряд">
-            <button type="button" role="radio" data-cols="2" aria-checked="true" aria-label="По 2 в ряд"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.00" y="2" width="9.00" height="20" rx="1.5"/><rect x="13.00" y="2" width="9.00" height="20" rx="1.5"/></svg></button>
-            <button type="button" role="radio" data-cols="3" aria-checked="false" aria-label="По 3 в ряд"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.00" y="2" width="5.33" height="20" rx="1.5"/><rect x="9.33" y="2" width="5.33" height="20" rx="1.5"/><rect x="16.67" y="2" width="5.33" height="20" rx="1.5"/></svg></button>
-            <button type="button" role="radio" data-cols="4" aria-checked="false" aria-label="По 4 в ряд"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.00" y="2" width="3.50" height="20" rx="1.5"/><rect x="7.50" y="2" width="3.50" height="20" rx="1.5"/><rect x="13.00" y="2" width="3.50" height="20" rx="1.5"/><rect x="18.50" y="2" width="3.50" height="20" rx="1.5"/></svg></button>
-          </div>
-        </div>
-        <!-- Плашки по поводу: видны всегда -->
-        <div class="chips" id="filters" role="group" aria-label="Повод"></div>
-
-        <!-- Строка над каталогом: кнопка «Фильтры» (телефон) и «Найдено» -->
-        <div class="toolbar">
-          <button class="filter-btn" id="filter-open" type="button" aria-controls="price-panel">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10m4 0h2M4 17h4m4 0h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/></svg>
-            Фильтры<span class="filter-btn__dot" id="filter-dot" hidden></span>
-          </button>
-          <p class="found" id="found" aria-live="polite"></p>
-          <button class="found__clear" id="filter-clear" type="button" hidden>Сбросить всё</button>
-        </div>
-
-        <!-- Фильтр по цене: на компьютере — строка над карточками, на телефоне — панель снизу -->
-        <div class="price-panel" id="price-panel" role="group" aria-labelledby="price-title">
-          <div class="price-panel__grip" aria-hidden="true"></div>
-
-          <!-- Повод: те же разделы, что и плашками наверху, можно выбрать несколько -->
-          <div class="filter-group filter-group--tags">
-            <h3 class="filter-group__title">Повод</h3>
-            <div class="tag-picks" id="filter-tags"></div>
-          </div>
-
-          <div class="price-panel__head">
-            <h3 class="price-panel__title" id="price-title">
-              Цена при выбранном весе
-              <!-- Выбор веса: варианты подставляет script.js из data.js -->
-              <span class="weight-pick">
-                <select id="filter-weight" aria-label="Вес торта для фильтра по цене"></select>
-                <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3"/></svg>
-              </span>
-            </h3>
-            <button class="icon-btn price-panel__close" id="filter-close" type="button" aria-label="Закрыть фильтры">×</button>
-          </div>
-          <!-- Пояснение про торты с фиксированным весом и на сколько гостей хватит -->
-          <p class="price-panel__note"><span id="filter-guests"></span><span id="price-note"></span></p>
-
-          <div class="price">
-            <div class="price__inputs">
-              <label class="price__field"><span>от</span><input type="text" inputmode="numeric" id="price-from" aria-label="Цена от, ₽"><i>₽</i></label>
-              <span class="price__dash" aria-hidden="true">—</span>
-              <label class="price__field"><span>до</span><input type="text" inputmode="numeric" id="price-to" aria-label="Цена до, ₽"><i>₽</i></label>
-            </div>
-            <!-- Ползунок с двумя ручками: два range поверх общей дорожки -->
-            <div class="range" id="range">
-              <div class="range__track"><div class="range__fill" id="range-fill"></div></div>
-              <input type="range" id="range-from" aria-label="Цена от">
-              <input type="range" id="range-to" aria-label="Цена до">
-            </div>
-          </div>
-
-          <!-- Порядок карточек -->
-          <label class="filter-group filter-group--sort">
-            <span class="filter-group__title">Сортировка</span>
-            <span class="sort-pick">
-              <select id="filter-sort" aria-label="Порядок тортов в каталоге"></select>
-              <svg viewBox="0 0 12 12" aria-hidden="true"><path d="m3 4.5 3 3 3-3"/></svg>
-            </span>
-          </label>
-
-          <div class="price-panel__foot">
-            <button class="btn btn--ghost" id="filter-reset" type="button">Сбросить</button>
-            <button class="btn btn--primary" id="filter-apply" type="button">Показать</button>
-          </div>
-        </div>
-
-        <div class="catalog" id="catalog"></div>
-
-        <!-- Пусто: ничего не подошло -->
-        <div class="catalog__empty" id="catalog-empty" hidden>
-          <p>Нет тортов в этом диапазоне</p>
-          <button class="btn btn--ghost" id="empty-reset" type="button">Сбросить</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- Как заказать: 3 шага -->
-    <section class="section section--choco" id="how">
-      <div class="container">
-        <div class="section__head">
-          <h2 class="section__title">Как заказать</h2>
-        </div>
-        <ol class="steps">
-          <li class="step">
-            <b class="step__title">Выберите торт</b>
-            <span class="step__text">И вес — цена на карточке пересчитается сама.</span>
-          </li>
-          <li class="step">
-            <b class="step__title">Укажите дату</b>
-            <span class="step__text">Не раньше чем через 7 дней. Более ранние даты в календаре закрыты.</span>
-          </li>
-          <li class="step">
-            <b class="step__title">Внесите предоплату</b>
-            <span class="step__text">50% по СБП. После неё заказ принят в работу.</span>
-          </li>
-        </ol>
-      </div>
-    </section>
-
-
-    <!-- Отзывы: только заглушки, без выдуманных текстов -->
-    <section class="section" id="reviews">
-      <div class="container">
-        <div class="section__head">
-          <h2 class="section__title">Отзывы</h2>
-        </div>
-        <div class="reviews">
-          <article class="review" aria-label="Место для отзыва">
-            <div class="review__head"><span class="ph ph--avatar"></span><span class="ph ph--name"></span></div>
-            <span class="ph ph--line"></span><span class="ph ph--line"></span><span class="ph ph--line ph--short"></span>
-            <p class="review__note">Здесь будут ваши настоящие отзывы с 2ГИС и Фламп</p>
-          </article>
-          <article class="review" aria-label="Место для отзыва">
-            <div class="review__head"><span class="ph ph--avatar"></span><span class="ph ph--name"></span></div>
-            <span class="ph ph--line"></span><span class="ph ph--line"></span><span class="ph ph--line ph--short"></span>
-            <p class="review__note">Здесь будут ваши настоящие отзывы с 2ГИС и Фламп</p>
-          </article>
-          <article class="review" aria-label="Место для отзыва">
-            <div class="review__head"><span class="ph ph--avatar"></span><span class="ph ph--name"></span></div>
-            <span class="ph ph--line"></span><span class="ph ph--line"></span><span class="ph ph--line ph--short"></span>
-            <p class="review__note">Здесь будут ваши настоящие отзывы с 2ГИС и Фламп</p>
-          </article>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <!-- Контакты -->
-  <footer class="footer" id="contacts">
-    <div class="container">
-      <p class="footer__brand">Торты на заказ</p>
-      <ul class="footer__list">
-        <li><span>Самовывоз</span><address class="footer__address" id="footer-address">пер. Фабричный, 25, Хабаровск</address></li>
-        <li><span>Телефон</span><a id="footer-tel" href="#"></a></li>
-        <li><span>Доставка</span>Яндекс.Доставка — стоимость рассчитывается при заказе</li>
-        <!-- Часы работы и отметку «Сейчас работаем» подставляет script.js из data.js -->
-        <li>
-          <span>Часы работы</span><b class="hours" id="footer-hours"></b><b class="hours hours--off" id="footer-dayoff"></b>
-          <em class="open-now" id="open-now"><i class="open-now__dot" aria-hidden="true"></i><span id="open-now-text"></span></em>
-        </li>
-      </ul>
-      <!-- Ссылки с номером из data.js подставляет script.js -->
-      <div class="footer__messengers">
-        <a class="btn btn--wa" id="footer-wa" href="#" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 0 0-7.8 13.5L3 21l4.6-1.2A9 9 0 1 0 12 3Z"/><path d="M9 8.5c0 3.5 3 6.5 6.5 6.5l1-1.6-2-1-1 .8c-1-.5-2-1.5-2.4-2.4l.8-1-1-2z"/></svg>
-          Написать в WhatsApp
-        </a>
-        <a class="btn btn--wa btn--tg" id="footer-tg" href="#" target="_blank" rel="noopener">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 4.5 2.8 11.4c-.9.4-.9 1.1 0 1.4l4.6 1.5 1.8 5.4c.2.6.9.8 1.4.4l2.6-2.3 4.6 3.4c.6.4 1.3.1 1.5-.6L22 5.7c.2-.9-.4-1.5-1-1.2Z"/><path d="m7.4 14.3 10.2-6.6-7.6 7.8"/></svg>
-          Написать в Telegram
-        </a>
-      </div>
-    </div>
-  </footer>
-
-  <!-- Липкая кнопка на телефоне: «Заказать торт» — прокрутка к тортам.
-       Сначала спрятана: script.js показывает её, когда первый экран и торты уходят с экрана -->
-  <button class="order-bar is-hidden" id="order-bar" type="button">
-    <span id="order-bar-text">Заказать торт</span>
-  </button>
-
-  <div class="overlay overlay--filters" id="filter-overlay"></div>
-
-  <!-- Окно заказа: торт, вес и цена подставлены, клиент пишет имя и дату → WhatsApp -->
-  <div class="modal order" id="order-modal" role="dialog" aria-modal="true" aria-labelledby="order-title" hidden>
-    <div class="modal__card order__card">
-      <button class="icon-btn modal__close" id="order-close" type="button" aria-label="Закрыть">×</button>
-      <!-- Фото, название и цена — только для чтения, подставляет script.js -->
-      <div class="order__photo" id="order-photo"></div>
-      <h2 class="modal__title" id="order-title">Заказ торта</h2>
-      <!-- Калькулятор порций: число гостей само выбирает вес -->
-      <div class="guests" id="order-guests">
-        <label class="guests__row">
-          <span class="guests__label">На сколько гостей?</span>
-          <input class="guests__input" type="number" id="o-guests" min="5" max="50" inputmode="numeric" placeholder="10">
-        </label>
-        <p class="guests__hint" id="o-guests-hint"></p>
-      </div>
-      <div class="weights order__weights" id="order-weights" role="radiogroup" aria-label="Вес торта"></div>
-      <p class="order__price" id="order-price"></p>
-      <p class="order__prepay" id="order-prepay"></p>
-
-      <form class="form order__form" id="order-form" novalidate>
-        <label class="field">
-          <span class="field__label">Ваше имя</span>
-          <input type="text" id="o-name" autocomplete="name" maxlength="60" required>
-        </label>
-        <label class="field">
-          <span class="field__label">Дата</span>
-          <input type="date" id="o-date" required>
-          <span class="field__hint" id="o-date-hint"></span>
-        </label>
-        <p class="form-error" id="order-error" role="alert" hidden></p>
-        <a class="btn btn--primary btn--lg order__send" id="order-send" href="#" target="_blank" rel="noopener">Отправить заказ в WhatsApp</a>
-        <!-- Несколько тортов: складываем в корзину и отправляем одним сообщением -->
-        <button class="btn btn--ghost btn--lg order__cart" id="order-to-cart" type="button">В корзину</button>
-        <p class="order__hint">Хотите несколько тортов — добавьте их в корзину и отправьте одним сообщением</p>
-      </form>
-    </div>
-  </div>
-
-  <!-- Оценка торта: 10 кружков, имя и комментарий — всё необязательное, кроме оценки -->
-  <div class="modal order" id="rate-modal" role="dialog" aria-modal="true" aria-labelledby="rate-title" hidden>
-    <div class="modal__card order__card">
-      <button class="icon-btn modal__close" id="rate-close" type="button" aria-label="Закрыть">×</button>
-      <h2 class="modal__title" id="rate-title">Оцените торт</h2>
-      <p class="rate__cake" id="rate-cake"></p>
-
-      <!-- Кружки 1–10 рисует script.js -->
-      <div class="rate__dots" id="rate-dots" role="radiogroup" aria-label="Оценка от 1 до 10"></div>
-
-      <!-- Последние три комментария, если они есть -->
-      <div class="rate__comments" id="rate-comments" hidden>
-        <p class="rate__comments-title">Что пишут</p>
-        <ul class="rate__comments-list" id="rate-comments-list"></ul>
-      </div>
-
-      <form class="form order__form" id="rate-form" novalidate>
-        <label class="field">
-          <span class="field__label">Ваше имя</span>
-          <input type="text" id="r-name" autocomplete="name" maxlength="60" required>
-        </label>
-        <label class="field">
-          <span class="field__label">Комментарий <i>(необязательно)</i></span>
-          <textarea id="r-text" rows="3" maxlength="500" placeholder="Всё понравилось!"></textarea>
-        </label>
-        <p class="form-error" id="rate-error" role="alert" hidden></p>
-        <button class="btn btn--primary btn--lg order__send" id="rate-send" type="button">Отправить оценку</button>
-        <p class="rate__note" id="rate-note" hidden></p>
-      </form>
-
-      <!-- Появляется поверх окна после отправки -->
-      <div class="rate__thanks" id="rate-thanks" hidden>
-        <span class="rate__check" aria-hidden="true">✅</span>
-        <b>Спасибо за оценку!</b>
-      </div>
-    </div>
-  </div>
-
-  <!-- Корзина: список тортов, имя и дата один раз, одно сообщение в WhatsApp -->
-  <div class="modal order" id="cart-modal" role="dialog" aria-modal="true" aria-labelledby="cart-title" hidden>
-    <div class="modal__card order__card">
-      <button class="icon-btn modal__close" id="cart-close" type="button" aria-label="Закрыть">×</button>
-      <h2 class="modal__title" id="cart-title">Корзина</h2>
-
-      <!-- Список тортов рисует script.js -->
-      <ul class="cart__list" id="cart-list"></ul>
-
-      <p class="order__price" id="cart-total"></p>
-      <p class="order__prepay" id="cart-prepay"></p>
-
-      <form class="form order__form" id="cart-form" novalidate>
-        <label class="field">
-          <span class="field__label">Ваше имя</span>
-          <input type="text" id="c-name" autocomplete="name" maxlength="60" required>
-        </label>
-        <label class="field">
-          <span class="field__label">Дата</span>
-          <input type="date" id="c-date" required>
-          <span class="field__hint" id="c-date-hint"></span>
-        </label>
-        <p class="form-error" id="cart-error" role="alert" hidden></p>
-        <a class="btn btn--primary btn--lg order__send" id="cart-send" href="#" target="_blank" rel="noopener">Отправить заказ в WhatsApp</a>
-        <button class="cart__clear" id="cart-clear" type="button">Очистить корзину</button>
-      </form>
-    </div>
-  </div>
-
-  <!-- Страница торта: открывается нажатием на карточку ниже фото -->
-  <div class="pd" id="pd" role="dialog" aria-modal="true" aria-labelledby="pd-name" hidden>
-    <div class="pd__bar">
-      <button class="pd__back" id="pd-close" type="button">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg>
-        Все торты
+    <div class="hdr__act">
+      <button class="toggle" id="themeBtn" type="button" aria-pressed="true" aria-label="Переключить тему">
+        <span class="toggle__ic" aria-hidden="true">
+          <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/>
+          </svg>
+          <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4.2"/>
+            <path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6"/>
+          </svg>
+        </span>
+        <span class="toggle__lbl" id="themeLbl">Тёмная</span>
       </button>
-      <span class="pd__crumb" id="pd-crumb"></span>
-    </div>
-
-    <div class="pd__scroll" id="pd-scroll">
-      <div class="pd__wrap">
-        <!-- Фото и миниатюры -->
-        <div class="pd__media">
-          <button class="pd__photo" id="pd-photo" type="button" aria-label="Открыть фото на весь экран"></button>
-          <div class="pd__thumbs" id="pd-thumbs"></div>
-        </div>
-
-        <!-- Название, цена, вес, кнопки -->
-        <div class="pd__buy">
-          <h2 class="pd__name" id="pd-name"></h2>
-          <p class="pd__sub" id="pd-sub"></p>
-
-          <div class="pd__weights" id="pd-weights"></div>
-
-          <div class="pd__price">
-            <span class="pd__price-value" id="pd-price"></span>
-            <span class="pd__price-note" id="pd-price-note"></span>
-          </div>
-
-          <div class="pd__actions">
-            <button class="btn btn--primary btn--lg" id="pd-add" type="button">Заказать</button>
-          </div>
-
-          <ul class="pd__notes">
-            <li><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12 3 3 5-6"/></svg>Под заказ, за 7 дней</li>
-            <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7h11v9H3zM14 10h4l3 3v3h-7z"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/></svg>Самовывоз или Яндекс.Доставка</li>
-            <li><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18"/></svg>Предоплата 50% по СБП</li>
-          </ul>
-
-          <!-- Короткие характеристики с фото -->
-          <dl class="pd__facts" id="pd-facts"></dl>
-        </div>
-      </div>
-
-      <!-- Вкладки: описание, состав, оплата, доставка -->
-      <div class="pd__wrap pd__wrap--tabs">
-        <div class="pd__tabs" id="pd-tabs" role="tablist"></div>
-        <div class="pd__panel" id="pd-panel" role="tabpanel"></div>
-      </div>
+      <button class="btn btn--sm js-demo" type="button">Позвонить</button>
     </div>
   </div>
+</header>
 
-  <!-- Галерея: фото торта на весь экран + 5 ракурсов -->
-  <div class="lb" id="lightbox" role="dialog" aria-modal="true" aria-labelledby="lb-title" hidden>
-    <div class="lb__top">
+<!-- ───────────────── ВКЛАДКИ КАТЕГОРИЙ (сразу под шапкой) ───────────────── -->
+<div class="tabsbar" id="tabsbar">
+  <div class="wrap tabsbar__in">
+    <div class="tabs" id="tabs" role="tablist" aria-label="Категории тортов"></div>
+  </div>
+</div>
+
+<!-- ───────────────── ГЕРОЙ ───────────────── -->
+<section class="hero">
+  <div class="wrap hero__in">
+    <div class="hero__copy">
+      <p class="eyebrow">Домашняя кондитерская · демо-версия сайта</p>
+      <h1 class="hero__title">Торты, которые <em>помнят</em> после праздника</h1>
+      <p class="hero__lead">
+        Собираем торт под ваш повод: вкус, вес и декор выбираете вы.
+        Ниже — каталог с фильтром по категориям и калькулятором, который подскажет
+        вес под количество гостей.
+      </p>
+      <div class="hero__btns">
+        <a class="btn btn--lg" href="#catalog">Смотреть каталог</a>
+        <button class="btn btn--lg btn--ghost js-demo" type="button">Рассчитать торт</button>
+      </div>
+      <dl class="facts">
+        <div><dt>от 48 ч</dt><dd>срок на заказ</dd></div>
+        <div><dt>от 1,5 кг</dt><dd>минимальный вес</dd></div>
+        <div><dt>14 вкусов</dt><dd>в постоянном меню</dd></div>
+      </dl>
+    </div>
+    <div class="hero__art" aria-hidden="true">
+      <div class="blob blob--1"></div>
+      <div class="blob blob--2"></div>
+      <div class="hero__card" id="heroArt"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────── КАТАЛОГ ───────────────── -->
+<main>
+<section class="section" id="catalog">
+  <div class="wrap">
+    <header class="sec-head">
       <div>
-        <h2 class="lb__title" id="lb-title"></h2>
-        <p class="lb__label"><span id="lb-label"></span> · <span id="lb-count"></span></p>
+        <p class="eyebrow">Каталог</p>
+        <h2 class="sec-title" id="catTitle">Все торты</h2>
       </div>
-      <button class="icon-btn lb__close" id="lb-close" type="button" aria-label="Закрыть галерею">×</button>
-    </div>
+      <div class="toolbar">
+        <span class="count" id="count" aria-live="polite"></span>
+        <div class="cols" role="group" aria-label="Количество колонок">
+          <span class="cols__lbl">Колонки</span>
+          <button type="button" data-cols="2" aria-pressed="false">2</button>
+          <button type="button" data-cols="3" aria-pressed="true">3</button>
+          <button type="button" data-cols="4" aria-pressed="false">4</button>
+        </div>
+      </div>
+    </header>
 
-    <div class="lb__stage" id="lb-stage">
-      <button class="lb__arrow lb__arrow--prev" id="lb-prev" type="button" aria-label="Предыдущее фото">‹</button>
-      <div class="lb__frame" id="lb-frame"></div>
-      <button class="lb__arrow lb__arrow--next" id="lb-next" type="button" aria-label="Следующее фото">›</button>
-    </div>
+    <div class="grid" id="grid"></div>
 
-    <div class="lb__thumbs" id="lb-thumbs" role="group" aria-label="Все фото торта"></div>
+    <p class="empty" id="empty" hidden>В этой категории пока ничего нет — выберите другую вкладку.</p>
   </div>
+</section>
 
-  <!-- Сначала данные, потом логика -->
-  <script src="data.js?v=37"></script>
-  <script src="config.js?v=37"></script>
-  <script src="spin.js?v=35"></script>
-  <script src="script.js?v=35"></script>
-  <script src="assistant.js?v=42"></script>
+<!-- ───────────────── КАК ЗАКАЗАТЬ ───────────────── -->
+<section class="section section--alt" id="how">
+  <div class="wrap">
+    <header class="sec-head sec-head--center">
+      <div>
+        <p class="eyebrow">Процесс</p>
+        <h2 class="sec-title">Как заказать</h2>
+        <p class="sec-lead">Четыре шага — от сообщения до торта на столе.</p>
+      </div>
+    </header>
+    <ol class="steps">
+      <li><span class="steps__n">01</span><h3>Выбираете торт</h3><p>Или описываете идею своими словами: повод, вкусы, пожелания по декору.</p></li>
+      <li><span class="steps__n">02</span><h3>Считаем вес и цену</h3><p>Подбираем вес под число гостей, согласовываем состав и итоговую стоимость.</p></li>
+      <li><span class="steps__n">03</span><h3>Готовим</h3><p>Собираем торт за 1–2 дня до события, чтобы крем успел стабилизироваться.</p></li>
+      <li><span class="steps__n">04</span><h3>Отдаём или привозим</h3><p>Самовывоз в удобное время или доставка в термоупаковке к нужному часу.</p></li>
+    </ol>
+  </div>
+</section>
+
+<!-- ───────────────── ДОСТАВКА ───────────────── -->
+<section class="section" id="delivery">
+  <div class="wrap two-col">
+    <div>
+      <p class="eyebrow">Доставка и оплата</p>
+      <h2 class="sec-title">Привезём к нужному часу</h2>
+      <p class="sec-lead">
+        Это демонстрационная страница, поэтому условия ниже — пример оформления блока.
+        Реальные цифры подставляются под конкретный город.
+      </p>
+      <ul class="ticks">
+        <li>Самовывоз из кондитерской — бесплатно</li>
+        <li>Доставка по городу — фиксированная стоимость</li>
+        <li>За город — по километражу</li>
+        <li>Оплата: перевод, карта, наличные при получении</li>
+      </ul>
+    </div>
+    <div class="notecard">
+      <h3>Как сохранить торт</h3>
+      <p>Храните в холодильнике при +2…+6 °C, достаньте за 20–30 минут до подачи —
+         так крем станет мягче, а вкус раскроется полнее.</p>
+      <p class="notecard__small">Срок хранения — 48 часов с момента получения.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────── ПОДВАЛ ───────────────── -->
+<footer class="footer" id="contacts">
+  <div class="wrap footer__in">
+    <div>
+      <a class="brand brand--foot" href="#top">
+        <span class="brand__txt">Моя<em>кондитерская</em></span>
+      </a>
+      <p class="footer__note">Демо-сайт. Названия, цены и условия — placeholder-данные.</p>
+    </div>
+    <div class="footer__cols">
+      <div>
+        <h4>Контакты</h4>
+        <p>+7 000 000-00-00</p>
+        <p>hello@example.com</p>
+      </div>
+      <div>
+        <h4>Режим работы</h4>
+        <p>Пн–Сб, 10:00–20:00</p>
+        <p>Вс — выходной</p>
+      </div>
+      <div>
+        <h4>Адрес</h4>
+        <p>ул. Примерная, 1</p>
+        <p>Выдача заказов по записи</p>
+      </div>
+    </div>
+  </div>
+</footer>
+</main>
+
+<!-- ───────────────── МОДАЛКА ───────────────── -->
+<div class="modal" id="modal" hidden>
+  <div class="modal__backdrop" data-close></div>
+  <div class="modal__box" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <button class="modal__x" type="button" data-close aria-label="Закрыть">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+
+    <div class="modal__grid">
+      <div class="modal__media" id="mMedia"></div>
+
+      <div class="modal__body">
+        <span class="badge" id="mCat"></span>
+        <h3 class="modal__title" id="mTitle"></h3>
+        <p class="modal__desc" id="mDesc"></p>
+
+        <div class="pricerow">
+          <div><span class="pricerow__k">Цена</span><strong id="mPrice"></strong></div>
+          <div><span class="pricerow__k">Вес</span><strong id="mWeight"></strong></div>
+          <div><span class="pricerow__k">За кг</span><strong id="mPerKg"></strong></div>
+        </div>
+
+        <div class="modal__cols">
+          <div>
+            <h4 class="h-mini">Состав</h4>
+            <ul class="dots" id="mComp"></ul>
+          </div>
+          <div>
+            <h4 class="h-mini">Детали</h4>
+            <ul class="kv" id="mMeta"></ul>
+          </div>
+        </div>
+
+        <!-- калькулятор гостей -->
+        <div class="calc">
+          <h4 class="h-mini">Сколько гостей?</h4>
+          <div class="calc__row">
+            <label class="field">
+              <span>Гостей</span>
+              <input id="cGuests" type="number" min="1" max="300" step="1" value="12" inputmode="numeric">
+            </label>
+            <label class="field">
+              <span>Порция</span>
+              <select id="cPortion">
+                <option value="120">К чаю — 120 г</option>
+                <option value="170" selected>Обычная — 170 г</option>
+                <option value="230">Щедрая — 230 г</option>
+              </select>
+            </label>
+          </div>
+          <div class="calc__out" id="cOut" aria-live="polite"></div>
+          <p class="calc__hint">Расчёт примерный: округляем вес вверх до 0,25 кг и учитываем минимальный вес торта.</p>
+        </div>
+
+        <div class="modal__btns">
+          <button class="btn btn--lg js-demo" type="button">Оформить заказ</button>
+          <button class="btn btn--lg btn--ghost" type="button" data-close>Вернуться в каталог</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="js/data.js?v=2"></script>
+<script src="js/app.js?v=2"></script>
 </body>
 </html>
