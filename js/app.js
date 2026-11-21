@@ -105,16 +105,31 @@
     return true;
   }
 
+  /* сохраняем категорию и сортировку; цену — нет: при новом заходе всегда «Любая»,
+     иначе человек возвращается к каталогу из двух позиций и категориям с нулями */
   const f = { cat: 'all', price: 'any', sort: 'popular' };
   try {
     const saved = JSON.parse(localStorage.getItem(FILTER_KEY) || 'null');
     if (saved) {
       if (CATEGORIES.some(c => c.id === saved.cat)) f.cat = saved.cat;
-      if (PRICES.some(x => x.id === saved.price))   f.price = saved.price;
       if (SORTS.indexOf(saved.sort) > -1)           f.sort = saved.sort;
     }
   } catch (e) {}
-  const saveFilters = () => { try { localStorage.setItem(FILTER_KEY, JSON.stringify(f)); } catch (e) {} };
+  const saveFilters = () => { try { localStorage.setItem(FILTER_KEY, JSON.stringify({ cat: f.cat, sort: f.sort })); } catch (e) {} };
+
+  /* 8.2 — заголовок каталога по фильтру: «Детские торты до 3 000 ₽» */
+  const CAT_TITLE = {
+    all: 'Торты', birthday: 'Торты на день рождения', kids: 'Детские торты', wedding: 'Свадебные торты',
+    mousse: 'Муссовые торты', cheesecake: 'Чизкейки', bento: 'Бенто-торты', cupcakes: 'Капкейки'
+  };
+  const PRICE_TITLE = {
+    lt3: 'до 3\u00a0000 ₽', '3-6': 'от 3\u00a0000 до 6\u00a0000 ₽',
+    '6-10': 'от 6\u00a0000 до 10\u00a0000 ₽', gt10: 'от 10\u00a0000 ₽'
+  };
+  function catalogTitle() {
+    if (f.price === 'any') return f.cat === 'all' ? 'Все торты' : (CAT_TITLE[f.cat] || catName(f.cat));
+    return (CAT_TITLE[f.cat] || catName(f.cat)) + ' ' + PRICE_TITLE[f.price];
+  }
 
   function visible() {
     const list = PRODUCTS.filter(p => (f.cat === 'all' || p.cat === f.cat) && inPrice(p, f.price));
@@ -143,36 +158,37 @@
       t.setAttribute('aria-selected', String(c === f.cat));
       const n = PRODUCTS.filter(p => (c === 'all' || p.cat === c) && inPrice(p, f.price)).length;
       $('.tab__n', t).textContent = n;
-      t.classList.toggle('is-empty', n === 0);
+      const off = n === 0 && c !== f.cat;          // выбранную не блокируем — у неё есть «Сбросить фильтры»
+      t.disabled = off;
+      t.setAttribute('aria-disabled', String(off));
     });
     $$('.pchip', pricesBox).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.price === f.price)));
     sortSel.value = f.sort;
-    $('#catTitle').textContent = f.cat === 'all' ? 'Все торты' : catName(f.cat);
+    $('#catTitle').textContent = catalogTitle();
+    updateScrollers();
   }
 
   function update(scroll) {
     saveFilters();
     syncControls();
     render();
-    if (scroll) {
-      // фильтрация на месте: если каталог ушёл выше экрана — мягко подводим к нему
-      const top = $('#catalog').getBoundingClientRect().top;
-      if (top < 0) window.scrollTo({ top: $('#catalog').offsetTop - 150, behavior: reduced() ? 'auto' : 'smooth' });
-    }
+    // фильтрация на месте: если каталог ушёл выше экрана — мягко подводим к его началу
+    if (scroll && $('#catalog').getBoundingClientRect().top < 0) scrollToCatalog();
   }
 
   tabsBox.addEventListener('click', e => {
     const tab = e.target.closest('.tab');
-    if (!tab || tab.dataset.cat === f.cat) return;
+    if (!tab || tab.disabled || tab.dataset.cat === f.cat) return;
     f.cat = tab.dataset.cat;
     update(true);
   });
   tabsBox.addEventListener('keydown', e => {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
-    const tabs = $$('.tab', tabsBox);
+    const tabs = $$('.tab', tabsBox).filter(t => !t.disabled);
     const i = tabs.indexOf(document.activeElement);
     if (i < 0) return;
     const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
+    next.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     next.focus();
     f.cat = next.dataset.cat;
     update(true);
@@ -186,6 +202,66 @@
   });
   sortSel.addEventListener('change', () => { f.sort = sortSel.value; update(false); });
   $('#resetFilters').addEventListener('click', () => { f.cat = 'all'; f.price = 'any'; update(false); });
+
+  /* ───────── ряды вкладок и цен: растушёвка у краёв + стрелки на десктопе ───────── */
+  const ARROW = d => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="' +
+                     (d < 0 ? 'M15 5l-7 7 7 7' : 'M9 5l7 7-7 7') + '"/></svg>';
+  const scrollers = [];
+  function makeScroller(el) {
+    const wrap = document.createElement('div');
+    wrap.className = 'scroller';
+    el.parentNode.insertBefore(wrap, el);
+    wrap.appendChild(el);
+    [[-1, 'l', 'Прокрутить влево'], [1, 'r', 'Прокрутить вправо']].forEach(([d, side, label]) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'scroller__btn scroller__btn--' + side;
+      b.tabIndex = -1;                                  // с клавиатуры ряд и так проходится Tab / стрелками
+      b.setAttribute('aria-hidden', 'true');
+      b.title = label;
+      b.innerHTML = ARROW(d);
+      b.addEventListener('click', () => el.scrollBy({ left: d * el.clientWidth * 0.7, behavior: reduced() ? 'auto' : 'smooth' }));
+      wrap.appendChild(b);
+    });
+    const upd = () => {
+      const max = el.scrollWidth - el.clientWidth;
+      wrap.classList.toggle('can-l', el.scrollLeft > 2);
+      wrap.classList.toggle('can-r', el.scrollLeft < max - 2);
+    };
+    el.addEventListener('scroll', upd, { passive: true });
+    if (window.ResizeObserver) new ResizeObserver(upd).observe(el);
+    scrollers.push(upd);
+  }
+  function updateScrollers() { scrollers.forEach(u => u()); }
+  makeScroller(tabsBox);
+  makeScroller(pricesBox);
+
+  /* 8.1 — панель под шапкой не липнет над первым экраном; прилипает, когда доскроллили до каталога */
+  const bar = $('#tabsbar'), hdr = $('.hdr'), catalogEl = $('#catalog');
+  const spacer = document.createElement('div');
+  spacer.className = 'tabsbar-spacer';
+  bar.after(spacer);
+  const stickTop = () => getComputedStyle(hdr).position === 'sticky' ? hdr.getBoundingClientRect().height : 0;
+  let barH = 0, stickRaf = 0;
+  function updateStick() {
+    stickRaf = 0;
+    const stuck = bar.classList.contains('is-stuck');
+    if (!stuck) barH = bar.offsetHeight;
+    const top = stickTop(), r = catalogEl.getBoundingClientRect();
+    const want = r.top <= top + barH && r.bottom > top + barH + 80;
+    if (want === stuck) return;
+    bar.classList.toggle('is-stuck', want);
+    bar.style.setProperty('--stick-top', top + 'px');
+    spacer.style.height = want ? barH + 'px' : '';
+  }
+  const queueStick = () => { if (!stickRaf) stickRaf = requestAnimationFrame(updateStick); };
+  window.addEventListener('scroll', queueStick, { passive: true });
+  window.addEventListener('resize', () => { bar.classList.toggle('is-stuck', false); spacer.style.height = ''; queueStick(); });
+
+  function scrollToCatalog() {
+    const y = window.scrollY + catalogEl.getBoundingClientRect().top - stickTop() - (barH || bar.offsetHeight) - 8;
+    window.scrollTo({ top: Math.max(0, y), behavior: reduced() ? 'auto' : 'smooth' });
+  }
 
   /* ───────────────────────── каталог ───────────────────────── */
   const grid = $('#grid');
@@ -426,7 +502,11 @@
     openProduct: function (id, trigger) { open(id, trigger || null); }
   };
 
+  // первое выставление состояния — без переходов, иначе активные кнопки «наплывают» цветом при загрузке
+  html.classList.add('is-booting');
   applyCols();
   syncControls();
   render();
+  updateStick();
+  setTimeout(() => html.classList.remove('is-booting'), 60);
 })();

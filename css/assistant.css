@@ -14,7 +14,7 @@
 
 /* ───────────────────────── стопка кнопок ───────────────────────── */
 .fabs {
-  position: fixed; right: 24px; bottom: 24px; z-index: 70;
+  position: fixed; right: 24px; bottom: calc(24px + env(safe-area-inset-bottom)); z-index: 70;
   display: flex; flex-direction: column; align-items: center; gap: 16px;
 }
 
@@ -69,7 +69,7 @@ html[data-theme="light"] .fab--ai::after { border-color: rgba(255, 255, 255, .9)
 .fabwrap:hover .fab__tip,
 .fab:focus-visible + .fab__tip { opacity: 1; transform: translate(0, -50%); }
 
-/* подпись под кнопкой — только на мобильном */
+/* (подпись под кнопкой убрана: на телефоне — только aria-label) */
 .fab__cap {
   display: none;
   position: absolute; top: calc(100% + 5px); right: 0;   /* прижата к правому краю — не уезжает за экран */
@@ -226,10 +226,10 @@ html[data-theme="light"] .fab--ai::after { border-color: rgba(255, 255, 255, .9)
 
 /* ───────────────────────── мобильный ───────────────────────── */
 @media (max-width: 620px) {
-  .fabs { right: 16px; bottom: 38px; gap: 26px; }   /* запас снизу под подписи */
+  .fabs { right: 16px; bottom: calc(16px + env(safe-area-inset-bottom)); gap: 16px; }
   .fab__tip { display: none; }
-  .fab__cap { display: block; }
-  .footer { padding-bottom: 190px; }          /* кнопки не перекрывают контакты */
+  /* нижний отступ контенту: две кнопки по 60px + промежуток + край экрана */
+  .footer { padding-bottom: calc(168px + env(safe-area-inset-bottom)); }
   .chat {
     inset: 0; width: auto; max-height: none; border-radius: 0; border: 0;
     animation: chatUp .3s var(--ease, ease);

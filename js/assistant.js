@@ -1,7 +1,15 @@
 /* ============================================================
    ИИ-помощник (локальный, без API) + веер соцсетей.
-   Сценарий: сначала разобраться (гости → вкусы → бюджет), потом
-   предложить. Не торопит, не выдумывает, не поднимает бюджет.
+
+   Как устроен диалог:
+   1. Каждое сообщение сначала разбирается на ФАКТЫ — гости, число
+      тортов, бюджет, вкусы, повод — независимо от текущего вопроса.
+      Числа привязываются к словам рядом с ними («3 торта», «гостей 15»,
+      «бюджет 15 000»), а не берутся по порядку.
+   2. Разобранное подтверждается одной строкой: «Понял: …».
+   3. Планировщик задаёт следующий вопрос, пропуская уже известное.
+      Повторный вопрос — короткой строкой, а не прежним абзацем.
+   Помощник не торопит, не выдумывает и не поднимает бюджет.
    Зависит от window.MK — публичного API из js/app.js.
    ============================================================ */
 (function () {
@@ -14,8 +22,9 @@
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
   const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const money = MK.money, kg = MK.kg;
+  const num = n => new Intl.NumberFormat('ru-RU').format(Math.round(n));
 
-  const LS_KEY = 'mk-chat-v2';     // новый сценарий — новый ключ, старая история не мешает
+  const LS_KEY = 'mk-chat-v3';
   const PER = 170;                 // порция, г — как в калькуляторе модалки
   const R = 90, A_FROM = 180, A_TO = 270, STAGGER = 40;
 
@@ -50,21 +59,34 @@
   ];
   const glyph = d => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
 
-  /* ═════════════════════════ СЛОВАРЬ И РАЗБОР ТЕКСТА ═════════════════════════ */
+  /* ═════════════════════════ СЛОВА И ФОРМЫ ═════════════════════════ */
 
   const norm = t => String(t).toLowerCase().replace(/ё/g, 'е');
-  // \b не работает с кириллицей — своя граница слова
-  const word = w => new RegExp('(^|[^а-яa-z])(' + w + ')(?![а-яa-z])');
-
+  const cap = s => s ? s[0].toUpperCase() + s.slice(1) : s;
   const pl = (n, f) => MK.plural(n, f);
-  const nomN = n => n + ' ' + pl(n, ['человек', 'человека', 'человек']);          // «будет 5 человек»
-  const onN  = n => 'на ' + n + ' ' + pl(n, ['человека', 'человека', 'человек']);  // «на 2 человека», «на 15 человек»
-  const joinAnd = a => a.length < 2 ? (a[0] || '') : a.slice(0, -1).join(', ') + ' и ' + a[a.length - 1];
-  const CAKES_WORD = { 1: 'Один торт', 2: 'Два торта', 3: 'Три торта' };
+  const guestsN = n => n + ' ' + pl(n, ['гость', 'гостя', 'гостей']);
+  const cakesN  = n => n + ' ' + pl(n, ['торт', 'торта', 'тортов']);
+  const onN = n => 'на ' + n + ' ' + pl(n, ['человека', 'человека', 'человек']);   // «на 2 человека», «на 15 человек»
+  const COLLECTIVE = { 2: 'на двоих', 3: 'на троих', 4: 'на четверых', 5: 'на пятерых', 6: 'на шестерых', 7: 'на семерых' };
+  const onWho = n => COLLECTIVE[n] || onN(n);
+  const CAKES_WORD = { 1: 'один торт', 2: 'два торта', 3: 'три торта', 4: 'четыре торта', 5: 'пять тортов' };
+  const ORD = ['Первый', 'Второй', 'Третий', 'Четвёртый', 'Пятый'];
 
-  /* числа словами: «тысяч пять», «до пяти тысяч», «двадцать пять» */
+  const FLAVORS = {
+    choc:  { label: 'Шоколад',          tags: ['шоколад'],         say: 'шоколадный',        many: 'шоколадных' },
+    fruit: { label: 'Фрукты и ягоды',   tags: ['фрукты', 'ягоды'], say: 'фруктово-ягодный',  many: 'фруктово-ягодных' },
+    cream: { label: 'Сливки, нежное',   tags: ['сливки'],          say: 'сливочный',         many: 'сливочных' },
+    light: { label: 'Не очень сладкое', tags: ['не сладко'],       say: 'не очень сладкий',  many: 'не очень сладких' },
+    any:   { label: 'Без разницы',      tags: null,                say: 'любой',             many: '' }
+  };
+  const FLAVOR_KEYS = ['choc', 'fruit', 'cream', 'light', 'any'];
+  const hasTags = f => !!(f && FLAVORS[f] && FLAVORS[f].tags);
+  const TAG_ADJ = { 'шоколад': 'шоколадный', 'ягоды': 'ягодный', 'фрукты': 'фруктовый', 'сливки': 'сливочный', 'не сладко': 'не приторный' };
+
+  /* ═════════════════════════ ЧИСЛА: parseAmount и привязка к словам ═════════════════════════ */
+
   const WORD_NUM = {
-    'один': 1, 'одного': 1, 'одной': 1, 'полтора': 1.5, 'полторы': 1.5,
+    'один': 1, 'одного': 1, 'одной': 1, 'одну': 1, 'полтора': 1.5, 'полторы': 1.5, 'пару': 2,
     'два': 2, 'две': 2, 'двух': 2, 'три': 3, 'трех': 3, 'четыре': 4, 'четырех': 4,
     'пять': 5, 'пяти': 5, 'шесть': 6, 'шести': 6, 'семь': 7, 'семи': 7,
     'восемь': 8, 'восьми': 8, 'девять': 9, 'девяти': 9, 'десять': 10, 'десяти': 10,
@@ -72,121 +94,194 @@
     'двадцать': 20, 'двадцати': 20, 'тридцать': 30, 'тридцати': 30,
     'сорок': 40, 'сорока': 40, 'пятьдесят': 50, 'пятидесяти': 50
   };
-  function wordNum(t) {
-    const toks = norm(t).split(/[^а-я0-9]+/).filter(Boolean);    // токены целиком: «стоит» ≠ «сто»
-    for (let i = 0; i < toks.length; i++) {
-      const v = WORD_NUM[toks[i]];
-      if (v == null) continue;
-      const next = WORD_NUM[toks[i + 1]];
-      if (v >= 20 && v % 10 === 0 && next && next < 10) return v + next;   // «двадцать пять»
-      return v;
-    }
-    return null;
-  }
-
-  const clampG = n => Math.max(1, Math.min(300, Math.round(n)));
-
-  /* гости */
-  function parseGuests(raw, strict) {
-    const t = norm(raw);
-    if (/не знаю|пока не|без понятия|сложно сказать|не уверен|затрудня|понятия не/.test(t)) return { unsure: true };
-    const people = /человек|чел\.|гост|персон|участник/.test(t);
-    if (strict && !people) return null;
-
-    let m = t.match(/(\d+)\s*[-–—]\s*(\d+)/);
-    if (m) return { n: clampG((+m[1] + +m[2]) / 2), range: [+m[1], +m[2]] };
-    m = t.match(/\d+/);
-    if (m) {
-      if (/больше|более|свыше|за\s+\d/.test(t)) return { more: +m[0] };
-      return { n: clampG(+m[0]) };
-    }
-    const w = wordNum(t);
-    if (w && w >= 1 && w <= 100) return { n: clampG(w) };
-    if (strict) return null;
-    if (/вдвоем|двое|на двоих/.test(t)) return { n: 2 };
-    if (/небольш|семья|семьей|узк|пара друзей|немного|маленьк/.test(t)) return { n: 6, approx: 'небольшой круг' };
-    if (/средн/.test(t)) return { n: 12, approx: 'что-то среднее' };
-    if (/больш|много|застол|толп/.test(t)) return { n: 25, approx: 'большое застолье' };
-    return null;
-  }
-
-  /* вкус */
-  const FLAVORS = {
-    choc:  { label: 'Шоколад',          tags: ['шоколад'],          say: 'шоколадный' },
-    fruit: { label: 'Фрукты и ягоды',   tags: ['фрукты', 'ягоды'],  say: 'фруктово-ягодный' },
-    cream: { label: 'Сливки, нежное',   tags: ['сливки'],           say: 'сливочный' },
-    light: { label: 'Не очень сладкое', tags: ['не сладко'],        say: 'не очень сладкий' },
-    any:   { label: 'Без разницы',      tags: null,                 say: '' }
+  const RX = {
+    cake:   /^(торт|торта|тортов|тортик|тортика|тортиков|штук|штуки|штука|шт|разных|разные)$/,
+    guest:  /^(гост|человек|чел$|люд|персон|участник)/,
+    gLabel: /^нас$/,
+    mUnit:  /^(₽|р|руб|рубл[а-я]*)$/,
+    mLabel: /^(бюджет[а-я]*|до|дороже|пределах|максимум|потолок|сумм[а-я]*)$/,
+    mult:   /^(тыс|тысяч[а-я]*|тысяча|тысячу|тыщ[а-я]*)$/,
+    kPost:  /^(к|k)$/,
+    other:  /^(час[а-я]*|лет|год[а-я]*|числ[а-я]*|утра|вечера|минут[а-я]*|кг|килограм[а-я]*|грамм[а-я]*|г|см|ярус[а-я]*|этаж[а-я]*|процент[а-я]*|%)$/
   };
-  const FLAVOR_KEYS = ['choc', 'fruit', 'cream', 'light', 'any'];
-  const hasTags = f => !!(f && FLAVORS[f] && FLAVORS[f].tags);
 
-  function parseFlavor(raw) {
-    const t = norm(raw);
-    if (/без разниц|любой|любые|все равно|не важн|неважн|какой угодно/.test(t)) return 'any';
-    if (/не (очень )?слад|несладк|не приторн|кисл|легк|поменьше сахар/.test(t)) return 'light';
-    if (/шокол|какао|брауни/.test(t)) return 'choc';
-    if (/ягод|фрукт|малин|клубник|вишн|смород|манго|маракуй|черник|цитрус|апельсин|банан/.test(t)) return 'fruit';
-    if (/сливк|сливоч|крем|нежн|ванил|сыр|чиз|молоч/.test(t)) return 'cream';
-    return null;
+  /* «5 000» → «5000», «5к» → «5 к», «3-4» → «3 - 4», запятые и точки — границы фраз */
+  function tokenize(text) {
+    const t = norm(text)
+      .replace(/(\d),(\d)/g, '$1.$2')
+      .replace(/(\d)[\s  ]+(?=\d{3}(?!\d))/g, '$1')
+      .replace(/(\d)(?=[а-яa-z₽+])/g, '$1 ')
+      .replace(/([а-яa-z₽])(?=\d)/g, '$1 ')
+      .replace(/\s*[-–—]\s*/g, ' - ')
+      .replace(/[,;:!?()«»"…]/g, ' | ')
+      .replace(/\.(?!\d)/g, ' | ');
+    return t.split(/\s+/).filter(Boolean);
   }
 
-  /* бюджет: «5000», «5 000», «5к», «тысяч пять», «до пяти тысяч»,
-     «не дороже 4000», «в пределах 3-4 тысяч», «6000+» */
-  function parseBudget(raw) {
-    let t = norm(raw).replace(/(\d)[\s  ](?=\d{3}(?!\d))/g, '$1');
-    if (/пропуст|без бюджет|нет бюджет|не скажу/.test(t)) return { skip: true };
-    if (/не важн|неважн|любой|без разниц|все равно|не принцип|не огранич/.test(t)) return { any: true };
-    const f = s => parseFloat(String(s).replace(',', '.'));
-    const K = '(?:к|k|тыс[а-я]*|тыщ[а-я]*)(?![а-яa-z])';
-
-    let m = t.match(new RegExp('(\\d+(?:[.,]\\d+)?)\\s*[-–—]\\s*(\\d+(?:[.,]\\d+)?)\\s*' + K));
-    if (m) return { min: f(m[1]) * 1000, max: f(m[2]) * 1000 };
-    m = t.match(/(\d{3,})\s*[-–—]\s*(\d{3,})/);
-    if (m) return { min: +m[1], max: +m[2] };
-
-    const nums = [];
-    t.replace(new RegExp('(\\d+(?:[.,]\\d+)?)\\s*' + K, 'g'), (_, a) => { nums.push(f(a) * 1000); return ''; });
-    if (!nums.length) (t.match(/\d+/g) || []).forEach(x => { if (+x >= 100) nums.push(+x); });
-    if (!nums.length && /тыс|тыщ/.test(t)) {
-      const w = wordNum(t);
-      if (w) {
-        const both = t.match(/(\S+)\s*[-–—]\s*(\S+)\s*тыс/);                         // «три-четыре тысячи»
-        if (both && WORD_NUM[both[1]] && WORD_NUM[both[2]]) return { min: WORD_NUM[both[1]] * 1000, max: WORD_NUM[both[2]] * 1000 };
-        nums.push(w * 1000);
+  function scan(tk) {
+    const ms = [];
+    for (let i = 0; i < tk.length; i++) {
+      let v = null, e = i;
+      if (/^\d+(\.\d+)?$/.test(tk[i])) v = parseFloat(tk[i]);
+      else if (WORD_NUM[tk[i]] != null) {
+        v = WORD_NUM[tk[i]];
+        const nx = WORD_NUM[tk[i + 1]];
+        if (v >= 20 && v % 10 === 0 && nx != null && nx < 10) { v += nx; e = i + 1; }   // «двадцать пять»
       }
+      if (v == null) continue;
+      ms.push({ v: v, s: i, e: e });
+      i = e;
     }
-    if (!nums.length) return null;
-    const n = Math.max.apply(null, nums);
-    const ceiling = word('до').test(t) || /не дороже|не больше|в пределах|максимум|потолок/.test(t);
-    if (!ceiling && (word('от').test(t) || /\d\s*\+|больше|выше|не меньше/.test(t))) return { min: n };
-    return { max: n };
+    // диапазоны: «3 - 4», «трех - четырех»
+    for (let i = 0; i < ms.length - 1; i++) {
+      const a = ms[i], b = ms[i + 1];
+      if (tk[a.e + 1] === '-' && b.s === a.e + 2) ms.splice(i, 2, { v: b.v, min: a.v, max: b.v, s: a.s, e: b.e, range: true });
+    }
+    // множители: «5 тысяч», «тысяч пять», «5к», «тыщ 10»
+    const used = {};
+    const moneyWord = w => w != null && (RX.mUnit.test(w) || w === '|');
+    ms.forEach(m => {
+      const nx = tk[m.e + 1];
+      const kOk = nx && RX.kPost.test(nx) && (tk[m.e + 2] == null || moneyWord(tk[m.e + 2]) || !/^[а-я]/.test(tk[m.e + 2]));  // «к празднику» — не тысячи
+      if (nx && (RX.mult.test(nx) || kOk) && !used[m.e + 1]) { used[m.e + 1] = 1; m.k = true; m.e2 = m.e + 1; }
+      else if (tk[m.s - 1] && RX.mult.test(tk[m.s - 1]) && !used[m.s - 1]) { used[m.s - 1] = 1; m.k = true; m.s2 = m.s - 1; }
+      if (m.k) {
+        const x = n => n < 1000 ? n * 1000 : n;
+        m.v = x(m.v);
+        if (m.range) { m.min = x(m.min); m.max = x(m.max); }
+      }
+    });
+    // «до тысячи» — без числа
+    tk.forEach((w, i) => {
+      if (/^(тысяча|тысячу|тысячи)$/.test(w) && !used[i] && !ms.some(m => m.s <= i && i <= m.e)) ms.push({ v: 1000, s: i, e: i, k: true });
+    });
+    return ms.sort((a, b) => a.s - b.s);
   }
 
-  function budgetLabel(b) {
-    if (!b) return 'без ограничений';
-    if (b.min && b.max) return 'в пределах ' + money(b.min).replace(' ₽', '') + '–' + money(b.max);
-    if (b.max) return 'до ' + money(b.max);
-    if (b.min) return 'от ' + money(b.min);
-    return 'без ограничений';
+  /* у каждого числа ищем опорное слово рядом */
+  function classify(tk, ms) {
+    const startOf = m => m.s2 != null ? m.s2 : m.s;
+    const endOf = m => m.e2 != null ? m.e2 : m.e;
+    const inM = i => ms.some(m => i >= startOf(m) && i <= endOf(m));
+    const typeOf = w => RX.other.test(w) ? 'other' : RX.cake.test(w) ? 'cakes' : RX.guest.test(w) ? 'guests' : RX.mUnit.test(w) ? 'money' : null;
+    const claimed = {};
+
+    // 1) единица ПОСЛЕ числа: «15 гостей», «3 торта», «5000 ₽»
+    ms.forEach(m => {
+      if (m.k) { m.type = 'money'; return; }
+      for (let d = 1; d <= 2; d++) {
+        const i = endOf(m) + d, w = tk[i];
+        if (w == null || w === '|' || inM(i)) break;
+        const ty = typeOf(w);
+        if (ty) { m.type = ty; claimed[i] = 1; break; }
+        if (RX.mLabel.test(w) || RX.gLabel.test(w)) break;   // подпись к следующему числу
+      }
+    });
+    // 2) подпись ПЕРЕД числом: «гостей 15», «бюджет 15000», «нас будет 20», «торт на 12»
+    ms.forEach(m => {
+      if (m.type) return;
+      const st = startOf(m);
+      if (tk[st - 1] === 'на' && m.v <= 300) { m.type = 'guests'; return; }
+      for (let d = 1; d <= 3; d++) {
+        const i = st - d, w = tk[i];
+        if (w == null || w === '|' || inM(i)) break;
+        if (claimed[i]) continue;
+        const ty = typeOf(w) || (RX.gLabel.test(w) ? 'guests' : RX.mLabel.test(w) ? 'money' : null);
+        if (ty) { m.type = ty; claimed[i] = 1; break; }
+      }
+    });
+    // 3) направление: «до/не дороже/в пределах» — потолок; «от/больше/6000+» — нижняя граница
+    ms.forEach(m => {
+      const before = ' ' + tk.slice(Math.max(0, startOf(m) - 3), startOf(m)).join(' ') + ' ';
+      m.ceil = / (до|дороже|пределах|максимум|потолок) | не больше | не выше /.test(before);
+      m.floor = !m.ceil && (/ (от|больше|выше|более|свыше) /.test(before) || tk[endOf(m) + 1] === '+');
+      if (!m.type && m.v > 500) m.type = 'money';      // больше 500 — почти наверняка деньги
+    });
+    return ms;
   }
 
-  function detectOccasion(raw) {
-    const t = norm(raw);
+  const moneyOf = m => m.range ? { min: m.min, max: m.max } : m.floor ? { min: m.v, max: null } : { min: null, max: m.v };
+
+  /* 2.1 — сумма из свободного текста: «тысяч пять», «пяти тысяч», «полторы тысячи»,
+     «5к», «до пяти тысяч», «в пределах трёх-четырёх тысяч», «тыщ 10» */
+  function parseAmount(text) {
+    const tk = tokenize(text);
+    const ms = classify(tk, scan(tk)).filter(m => m.type !== 'other');
+    const money = ms.filter(m => m.type === 'money');
+    if (money.length) return moneyOf(money[money.length - 1]);
+    const bare = ms.filter(m => !m.type && m.v >= 100);
+    return bare.length ? moneyOf(bare[0]) : null;
+  }
+
+  function extractFlavors(t) {
+    const rx = {
+      light: /не (очень )?слад|несладк|не приторн|кислинк|поменьше сахар/,
+      choc:  /шокол|какао|брауни/,
+      fruit: /ягод|фрукт|малин|клубник|вишн|смород|манго|маракуй|черник|цитрус|апельсин|банан/,
+      cream: /сливк|сливоч|нежн|ванил|крем|сыр|чиз|молоч/
+    };
+    return Object.keys(rx)
+      .map(k => ({ k: k, i: t.search(rx[k]) }))
+      .filter(x => x.i > -1)
+      .sort((a, b) => a.i - b.i)
+      .map(x => x.k);
+  }
+
+  function detectOccasion(t) {
     if (/свадьб|венчан|жених|невест/.test(t)) return 'wedding';
     if (/детск|ребен|сын|дочк|дочер|малыш|ребят|школ|садик/.test(t)) return 'kids';
-    if (/день рожд|днюх|юбиле/.test(t) || word('др').test(t)) return 'birthday';
+    if (/день рожд|днюх|юбиле/.test(t) || /(^|[^а-я])др([^а-я]|$)/.test(t)) return 'birthday';
     return null;
   }
+  const OCC_SAY = { wedding: 'свадьба', kids: 'детский праздник', birthday: 'день рождения' };
+
+  /* все факты из одного сообщения; ctx — какой вопрос сейчас задан */
+  function extract(text, ctx) {
+    const t = norm(text), tk = tokenize(text);
+    const ms = classify(tk, scan(tk)).filter(m => m.type !== 'other');
+    const x = { ambiguous: [] };
+    ms.forEach(m => {
+      if (m.type === 'cakes') {
+        if (m.v >= 1 && m.v <= 10 && m.v % 1 === 0) x.cakes = m.v; else x.ambiguous.push(m.v);
+      } else if (m.type === 'guests') {
+        if (m.floor && !m.range) x.guestsMore = m.v;
+        else {
+          x.guests = clampG(m.range ? (m.min + m.max) / 2 : m.v);
+          if (m.range) x.guestsApprox = true;
+        }
+      } else if (m.type === 'money') {
+        x.budget = moneyOf(m);
+      } else {
+        x.ambiguous.push(m.v);
+      }
+    });
+    // одно «голое» число и других чисел нет — по контексту вопроса
+    if (x.ambiguous.length === 1 && ms.length === 1) {
+      const v = x.ambiguous[0];
+      if (/^(plan2|plan3|mismatch)$/.test(ctx) && v >= 1 && v <= 5) { x.cakes = v; x.ambiguous = []; }
+      else if (ctx === 'budget') { /* «15» в ответ на бюджет — не угадываем, переспросим */ }
+      else if (v >= 1 && v <= 300 && v % 1 === 0) { x.guests = v; x.ambiguous = []; }
+    }
+    x.flavors = extractFlavors(t);
+    x.occasion = detectOccasion(t);
+    x.unsure = /не знаю|пока не|без понятия|сложно сказать|не уверен|затрудня|понятия не/.test(t);
+    x.any = /без разниц|не важн|неважн|все равно|любой|любые|какой угодно/.test(t);
+    x.skip = /пропуст|без бюджет|нет бюджет|не скажу/.test(t);
+    x.yes = /^(да|ага|ок|окей|хорошо|давай|давайте|покажи|показывай|можно|конечно)([^а-я]|$)/.test(t);
+    x.no = /^(нет|не надо|не нужно|не стоит|хватит|не)([^а-я]|$)/.test(t);
+    return x;
+  }
+  const clampG = n => Math.max(1, Math.min(300, Math.round(n)));
 
   const INTENT = {
     contacts:    /адрес|телефон|позвон|номер|доставк|самовывоз|где вы|где наход|как добрат|как проехать|контакт|режим работ|часы работ|во сколько|ватсап|whatsapp|телеграм|telegram|почт|e-?mail/,
     composition: /состав|аллерг|глютен|лактоз|орех|арахис|без сахара|сахарозам|калори|ккал|срок годност|хран[ия]т|хранени|веган|постн|халяль|кошер/,
-    discount:    /скидк|акци|промокод|бонус|распродаж|дешевле нельзя|уступ/,
+    discount:    /скидк|акци|промокод|бонус|распродаж|уступ/,
     price:       /сколько стоит|сколько стоят|почем|какие цены|цен[аыу]|стоимост|ценник|по деньгам/,
-    choose:      /какой торт|подбер|подобр|выбрат|выбери|посовет|помоги|что взять|хочу торт|нужен торт|нужно торт/,
+    choose:      /какой торт|подбер|подобр|выбрат|выбери|посовет|помоги|что взять|хочу торт|нужен торт/,
     hello:       /^(привет|здравств|добрый|доброе|хай|hello|hi)/,
     thanks:      /спасибо|благодар/,
+    restart:     /^(заново|сначала|начать заново|сброс)/,
     domain:      /торт|десерт|чизкейк|бенто|капкейк|вкус|гост|человек|бюджет|рубл|₽|праздн|день рожд|свадьб|кг|вес/
   };
 
@@ -195,25 +290,20 @@
   const ALL = MK.products;
   const P_MIN = Math.min.apply(null, ALL.map(MK.price));
   const P_MAX = Math.max.apply(null, ALL.map(MK.price));
-
-  /* средняя (медианная) цена за кг у обычных тортов — для честного сравнения «один vs два» */
   const MED_KG = (function () {
     const v = ALL.filter(p => ['birthday', 'mousse', 'cheesecake'].indexOf(p.cat) > -1).map(p => p.perKg).sort((a, b) => a - b);
     return v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
   })();
-  const GENERIC = { minWeight: 1.2 };
-  const needW = g => MK.weightForGuests(GENERIC, g, PER);         // вес под гостей «вообще»
-  const rawW  = g => MK.weightForGuests({ minWeight: 0 }, g, PER); // без учёта минимального веса
+  const needW = g => MK.weightForGuests({ minWeight: 1.2 }, g, PER);   // вес под гостей «вообще»
+  const rawW  = g => MK.weightForGuests({ minWeight: 0 }, g, PER);     // без минимального веса
+  const exactKg = g => g * PER / 1000;                                 // точная потребность
 
   function compare(n, k) {
-    const one = needW(n);
-    const g = Math.ceil(n / k);
-    const each = needW(g);
-    return { one: one, each: each, k: k, g: g, sumOne: one * MED_KG, sumEach: each * MED_KG, sumMany: each * MED_KG * k };
+    const one = needW(n), g = Math.ceil(n / k), each = needW(g);
+    return { one: one, each: each, g: g, sumOne: one * MED_KG, sumMany: each * MED_KG * k };
   }
 
   const OCC_CATS = { kids: ['kids'], wedding: ['wedding'], birthday: ['birthday'] };
-
   function pool(perCake, occasion, tiered) {
     return ALL.filter(p => {
       if (tiered) return p.tiers >= 2;
@@ -236,30 +326,31 @@
     const w = MK.weightForGuests(p, g, PER);
     return { p: p, g: g, w: w, sum: w * p.perKg };
   }
-
-  /* один торт: сначала подходящие по вкусу, внутри — от дешёвых к дорогим (не подтягиваем цену) */
-  function pickSingle(a, tiered) {
-    const n = a.guests, f = a.flavors[0];
-    return pool(n, a.occasion, tiered)
-      .map(p => Object.assign(option(p, n), { s: fit(p, f, a.occasion) }))
-      .sort((x, y) => y.s - x.s || x.sum - y.sum);
+  /* вес сильно больше нужного (из-за минимального веса) — такой торт ниже в выдаче */
+  function overshoot(o) {
+    const r = o.w / exactKg(o.g);
+    return r >= 2 ? 1.5 : r >= 1.5 ? 0.75 : 0;
   }
-  function topByFlavor(list, f, k) {
-    const m = list.filter(o => matches(o.p, f));
-    return (hasTags(f) && m.length >= 2 ? m : list).slice(0, k);
+
+  /* один торт: сначала подходящие, внутри — от дешёвых к дорогим (не подтягиваем цену) */
+  function pickSingle(n, f, occasion, tiered) {
+    return pool(n, occasion, tiered)
+      .map(p => { const o = option(p, n); o.s = fit(p, f, occasion) - overshoot(o); return o; })
+      .sort((x, y) => y.s - x.s || x.sum - y.sum);
   }
 
   /* несколько тортов: перебор наборов, бюджет — на общую сумму */
-  function combos(a, k) {
-    const g = Math.ceil(a.guests / k);
-    const opts = pool(g, a.occasion, false).map(p => option(p, g));
-    const slots = [a.flavors[0] || 'any', a.flavors[1] || 'any', 'any'].slice(0, k);
+  function combos(n, k, flavors, occasion) {
+    const g = Math.ceil(n / k);
+    const opts = pool(g, occasion, false).map(p => option(p, g));
+    const slots = [];
+    for (let i = 0; i < k; i++) slots.push(flavors[i] || 'any');
     const res = [];
     (function rec(i, chosen) {
       if (i === k) {
         let s = 0;
-        chosen.forEach((o, j) => { s += fit(o.p, slots[j], a.occasion); });
-        res.push({ set: chosen.slice(), s: s, sum: chosen.reduce((t, o) => t + o.sum, 0), slots: slots });
+        chosen.forEach((o, j) => { s += fit(o.p, slots[j], occasion) - overshoot(o); });
+        res.push({ set: chosen.slice(), s: s, sum: chosen.reduce((t, o) => t + o.sum, 0), w: chosen.reduce((t, o) => t + o.w, 0), slots: slots, g: g });
         return;
       }
       opts.forEach(o => {
@@ -270,33 +361,37 @@
     return res.sort((x, y) => y.s - x.s || x.sum - y.sum);
   }
 
-  /* одна строка «почему именно этот» */
-  function flavorAdj(p, f) {
-    if (f === 'fruit') {
-      const b = p.flavors.indexOf('ягоды') > -1, fr = p.flavors.indexOf('фрукты') > -1;
-      return b && fr ? 'фруктово-ягодный' : b ? 'ягодный' : 'фруктовый';
-    }
-    return { choc: 'шоколадный', cream: 'сливочный, нежный', light: 'не приторный' }[f] || '';
+  /* ───────── обоснование — только из реальных полей торта ───────── */
+  function ownAdj(p) {
+    const a = p.flavors.map(t => TAG_ADJ[t]).filter(Boolean);
+    return a.length ? a.slice(0, 2).join(' и ') : '';
   }
-  function sizeNote(o) { return (o.w > rawW(o.g) ? 'с запасом ' : 'как раз ') + onN(o.g); }
-
-  function whySingle(o, f, budget) {
-    if (hasTags(f) && !matches(o.p, f)) return 'Вкус другой, но по весу ' + sizeNote(o) + ' — оставил для сравнения.';
-    const parts = [];
-    if (hasTags(f)) parts.push(flavorAdj(o.p, f));
-    else if (o.p.hit) parts.push('отмечен в каталоге как хит');
-    parts.push(sizeNote(o));
-    if (budget && budget.max) parts.push('в рамках бюджета');
-    return 'Взял, потому что ' + joinAnd(parts) + '.';
+  function matchedAdj(p, f) {
+    return FLAVORS[f].tags.filter(t => p.flavors.indexOf(t) > -1).map(t => TAG_ADJ[t]).join(' и ');
+  }
+  /* 5 — вес честно: «как раз», «с небольшим запасом» или «минимальный вес больше, чем нужно» */
+  function sizeNote(o) {
+    if (o.w <= rawW(o.g)) return 'как раз ' + onN(o.g);
+    if (o.w / exactKg(o.g) >= 1.5) return 'минимальный вес этого торта ' + kg(o.p.minWeight) + ' — это больше, чем нужно ' + onWho(o.g);
+    return 'с небольшим запасом ' + onN(o.g);
+  }
+  function flavorPart(o, f, matchCount) {
+    if (!hasTags(f)) return o.p.hit ? 'отмечен в каталоге как хит' : '';
+    if (matches(o.p, f)) return matchedAdj(o.p, f) + ', как вы просили';
+    const own = ownAdj(o.p);
+    if (matchCount === 0) return FLAVORS[f].many + ' на такой вес не нашлось' + (own ? ', это ' + own : ', вкус в описании не указан');
+    return 'другой вкус' + (own ? ' — ' + own : '') + ', добавил по вашей просьбе';
+  }
+  function whyOne(o, f, budget, matchCount) {
+    const parts = [flavorPart(o, f, matchCount), sizeNote(o)];
+    if (budget && budget.max && o.sum <= budget.max) parts.push('укладывается в бюджет');
+    const p = parts.filter(Boolean);
+    return p.length ? cap(p.join('; ')) + '.' : '';
   }
   function whySlot(o, f, i) {
-    const who = ['Первый', 'Второй', 'Третий'][i] || 'Ещё один';
-    if (hasTags(f)) {
-      return matches(o.p, f)
-        ? who + ' — ' + flavorAdj(o.p, f) + ', ' + onN(o.g) + '.'
-        : who + ' — точного совпадения по вкусу не нашлось, взял близкий, ' + onN(o.g) + '.';
-    }
-    return who + ' — ' + (o.p.hit ? 'хит каталога' : 'другой вкус для разнообразия') + ', ' + onN(o.g) + '.';
+    const fp = hasTags(f) ? flavorPart(o, f, matches(o.p, f) ? 1 : 0)
+                          : (o.p.hit ? 'хит каталога' : (ownAdj(o.p) ? 'другой вкус: ' + ownAdj(o.p) : ''));
+    return (ORD[i] || 'Ещё один') + ' — ' + [fp, sizeNote(o)].filter(Boolean).join('; ') + '.';
   }
 
   /* ═════════════════════════ РАЗМЕТКА ═════════════════════════ */
@@ -313,8 +408,7 @@
     '</div>' +
     '<div class="fabwrap">' +
       '<button class="fab fab--ai" id="mkAiBtn" type="button" aria-label="ИИ-помощник" aria-expanded="false" aria-controls="mkChat">' + I.ai + '</button>' +
-      '<span class="fab__tip">ИИ-помощник</span>' +
-      '<span class="fab__cap">ИИ-помощник</span>' +
+      '<span class="fab__tip" aria-hidden="true">ИИ-помощник</span>' +
     '</div>';
 
   const chat = document.createElement('section');
@@ -332,7 +426,7 @@
     '</header>' +
     '<div class="chat__log" id="mkLog" aria-live="polite"></div>' +
     '<form class="chat__form" id="mkForm">' +
-      '<input class="chat__in" id="mkInput" type="text" autocomplete="off" placeholder="Напишите сообщение…" aria-label="Сообщение">' +
+      '<input class="chat__in" id="mkInput" type="text" autocomplete="off" placeholder="Например: 2 торта на 20 человек, до 10 000" aria-label="Сообщение">' +
       '<button class="chat__send" type="submit" aria-label="Отправить">' + I.send + '</button>' +
     '</form>';
 
@@ -360,20 +454,24 @@
   const wait = ms => new Promise(r => setTimeout(r, ms));
 
   /* ───────────────────────── состояние ───────────────────────── */
-  const fresh = () => ({
-    stage: 'start',
-    answers: { guests: null, occasion: null, flavors: [], plan: null, budget: null, askedPrice: false },
-    pending: null,
-    entries: []
+  const freshFacts = () => ({
+    guests: null, guestsApprox: false,
+    cakes: null, cakesExplicit: false, tiered: false, both: false,
+    flavors: [], flavorAny: false,
+    budget: null, budgetDone: false,
+    occasion: null, mismatchOk: false, shortChoice: null, askedPrice: false, diffShown: false
   });
+  const fresh = () => ({ ask: 'start', asked: {}, misses: 0, pending: null, f: freshFacts(), entries: [] });
   let state = fresh();
   let busy = false;
+  let chain = Promise.resolve();
+  const enqueue = fn => (chain = chain.then(fn, fn).catch(err => console.error('[assistant]', err)));
 
   const save = () => { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {} };
   function load() {
     try {
       const d = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
-      if (!d || !Array.isArray(d.entries) || !d.entries.length) return false;
+      if (!d || !Array.isArray(d.entries) || !d.entries.length || !d.f) return false;
       state = d;
       return true;
     } catch (e) { return false; }
@@ -408,7 +506,7 @@
                '<span><span class="rec__n">' + p.name + '</span>' +
                '<span class="rec__m">' + MK.catName(p.cat) + ' · ' + kg(w) + '</span>' +
                '<span class="rec__p">≈ ' + money(w * p.perKg) + '</span>' +
-               '<span class="rec__why">' + it.why + '</span></span>' +
+               (it.why ? '<span class="rec__why">' + it.why + '</span>' : '') + '</span>' +
              '</button>';
     }).join('');
     log.append(box); toBottom();
@@ -418,25 +516,29 @@
     else if (e.r === 'chips') chipsRow(e.items, e.done);
     else if (e.r === 'recs') recsRow(e);
   }
-
   const push = e => { state.entries.push(e); save(); };
+  function lastBot() {
+    for (let i = state.entries.length - 1; i >= 0; i--) if (state.entries[i].r === 'bot') return state.entries[i].t;
+    return null;
+  }
 
+  /* 2.2 — никогда не повторяем предыдущую реплику дословно */
   async function say(text) {
+    if (!text || text === lastBot()) return;
     busy = true;
     const t = document.createElement('div');
     t.className = 'typing';
     t.innerHTML = '<span></span><span></span><span></span>';
     log.append(t); toBottom();
-    await wait(reduced() ? 40 : 380);
+    await wait(reduced() ? 40 : 360);
     t.remove();
     push({ r: 'bot', t: text });
     await bubble('bot', text, true);
     busy = false;
   }
   function me(text) { closeChips(); push({ r: 'me', t: text }); bubble('me', text, false); }
-  function chips(items) { push({ r: 'chips', items: items, done: false }); chipsRow(items, false); }
+  function chips(items) { if (!items.length) return; push({ r: 'chips', items: items, done: false }); chipsRow(items, false); }
   function recs(items, title) { const e = { r: 'recs', items: items, title: title || '' }; push(e); recsRow(e); }
-
   function closeChips() {
     for (let i = state.entries.length - 1; i >= 0; i--) {
       if (state.entries[i].r === 'chips') { state.entries[i].done = true; break; }
@@ -445,218 +547,237 @@
     save();
   }
 
-  /* ═════════════════════════ КНОПКИ ПО СТАДИЯМ ═════════════════════════ */
+  /* ═════════════════════════ ВОПРОСЫ ═════════════════════════ */
 
-  function chipsFor(stage) {
-    const a = state.answers;
-    switch (stage) {
+  const F = () => state.f;
+  const multi = () => (F().cakes || 0) > 1 || F().both;
+
+  const QUESTIONS = {
+    start:  { full: 'Здравствуйте! Я помогу выбрать торт из каталога. Подобрать вариант — или сначала подсказать по ценам?',
+              short: 'Подобрать торт или подсказать по ценам?' },
+    browse: { full: 'Хорошо, не буду мешать. Если понадобится помощь с выбором — я здесь.', short: 'Если что — я здесь.' },
+    guests: { full: 'Для начала — примерно сколько человек будет?', short: 'Сколько примерно будет гостей?' },
+    guests_more:   { full: 'А примерно сколько?', short: 'Сколько примерно гостей?' },
+    guests_unsure: { full: 'Ничего страшного, давайте прикинем. Это скорее небольшой круг — семья, пара друзей? Или большое застолье?',
+                     short: 'Какой примерно круг?' },
+    plan2:  { full: () => plan2Text(), short: 'Так что — два торта или один?' },
+    plan3:  { full: 'Компания большая — тут два пути. Несколько тортов, обычно три: разные вкусы, и резать проще. Или один многоярусный: эффектнее смотрится на фото, но вкус будет один. Что для вас важнее?',
+              short: 'Что важнее — разные вкусы или эффектный вид?' },
+    mismatch: { full: () => mismatchText(), short: () => 'Оставляем ' + cakesN(F().cakes) + ' или хватит одного?' },
+    flavor1: { full: () => multi() ? 'Возьмём разные вкусы, чтобы был выбор. Какой будет первый?' : 'Какие вкусы больше любите?',
+               short: () => multi() ? 'Какой первый вкус?' : 'Какой вкус?' },
+    flavor2: { full: 'А второй — что-то другое?', short: 'Какой второй вкус?' },
+    budget:  { full: () => multi() ? 'Есть примерный бюджет — на все торты вместе? Если нет — просто пропустите.'
+                                   : 'Есть примерный бюджет? Если нет — просто пропустите.',
+               short: 'Есть бюджет? Можно пропустить.' },
+    short:   { full: '', short: () => 'Добавить другие вкусы или показать только ' + FLAVORS[F().flavors[0]].say + '?' },
+    over:    { full: '', short: 'Показать этот вариант?' },
+    upgrade: { full: '', short: 'Показать вариант подороже?' },
+    fewer:   { full: '', short: 'Показать набор или подобрать меньше тортов?' },
+    clarify: { full: '', short: () => 'К чему относится ' + num(state.pending.vals[0]) + '?' },
+    done:    { full: 'Нажмите на карточку — откроется описание и калькулятор веса. Захотите что-то поменять — напишите или начните заново.',
+               short: 'Могу подобрать заново или поменять условия.' }
+  };
+  const val = v => typeof v === 'function' ? v() : v;
+
+  function chipsFor(key) {
+    const f = F(), p = state.pending || {};
+    switch (key) {
       case 'start':  return [['Подобрать торт', 'choose'], ['Сколько стоит торт?', 'price'], ['Просто смотрю', 'browse']];
       case 'browse': return [['Подобрать торт', 'choose'], ['Сколько стоит торт?', 'price']];
-      case 'guests': return [['до 5', '5'], ['5-10', '8'], ['10-20', '15'], ['больше 20', 'more'], ['Пока не знаю', 'unsure']];
-      case 'guests_more':   return [['20–30', '25'], ['30–50', '40'], ['больше 50', '60']];
-      case 'guests_unsure': return [['Небольшой круг', '6'], ['Что-то среднее', '12'], ['Большое застолье', '25'], ['Тоже не знаю', '10']];
-      case 'plan2':  return [['Давайте два', 'two'], ['Лучше один', 'one'], ['А насколько дороже?', 'diff']];
-      case 'plan2b': return [['Давайте два', 'two'], ['Лучше один', 'one']];
-      case 'plan3':  return [['Важнее вкусы', 'three'], ['Важнее вид на фото', 'tiered'], ['Покажи оба варианта', 'both']];
-      case 'flavor': case 'flavor1':
-        return FLAVOR_KEYS.map(k => [FLAVORS[k].label, k]);
-      case 'flavor2':
-        return FLAVOR_KEYS.filter(k => k !== a.flavors[0]).map(k => [FLAVORS[k].label, k]);
-      case 'budget': return [['до 3 000', 'lt3'], ['3 000-6 000', '3-6'], ['6 000+', 'gt6'], ['Не важно', 'any'], ['Пропустить', 'skip']];
-      case 'over':   return [['Покажи', 'show'], ['Не надо', 'no']];
-      case 'fewer':  return [['Покажи этот вариант', 'fewer'], ['Покажи исходный всё равно', 'many'], ['Не надо', 'no']];
-      case 'upgrade':return [['Покажи', 'show'], ['Не надо, этого хватит', 'no']];
-      case 'done':   return [['Начать заново', 'reset']];
-      default:       return [];
+      case 'guests': return [['до 5', 'g:5'], ['5-10', 'g~8'], ['10-20', 'g~15'], ['больше 20', 'more'], ['Пока не знаю', 'unsure']];
+      case 'guests_more':   return [['20–30', 'g~25'], ['30–50', 'g~40'], ['больше 50', 'g~60']];
+      case 'guests_unsure': return [['Небольшой круг', 'g~6'], ['Что-то среднее', 'g~12'], ['Большое застолье', 'g~25'], ['Тоже не знаю', 'g10']];
+      case 'plan2':  return [['Давайте два', 'c:2'], ['Лучше один', 'c:1']].concat(f.diffShown ? [] : [['А насколько дороже?', 'diff']]);
+      case 'plan3':  return [['Важнее вкусы', 'p:three'], ['Важнее вид на фото', 'p:tiered'], ['Покажи оба варианта', 'p:both']];
+      case 'mismatch': return [['Оставить ' + f.cakes, 'm:keep'], ['Хватит одного', 'm:one']];
+      case 'flavor1':  return FLAVOR_KEYS.map(k => [FLAVORS[k].label, 'f:' + k]);
+      case 'flavor2':  return FLAVOR_KEYS.filter(k => k !== f.flavors[0]).map(k => [FLAVORS[k].label, 'f:' + k]);
+      case 'budget':   return [['до 3 000', 'b:lt3'], ['3 000-6 000', 'b:3-6'], ['6 000+', 'b:gt6'], ['Не важно', 'b:any'], ['Пропустить', 'b:skip']];
+      case 'short':    return p.m > 0 ? [['Добавить другие', 's:add'], ['Только ' + FLAVORS[f.flavors[0]].say, 's:only']]
+                                      : [['Показать другие', 's:add'], ['Не надо', 's:no']];
+      case 'over':     return [['Покажи', 'o:show'], ['Не надо', 'o:no']];
+      case 'upgrade':  return [['Покажи', 'u:show'], ['Не надо, этого хватит', 'u:no']];
+      case 'fewer':    return [['Показать набор', 'fw:many'], ['Меньше тортов', 'fw:fewer'], ['Не надо', 'fw:no']];
+      case 'clarify': {
+        const v = p.vals[0], out = [[guestsN(v), 'cl:g']];
+        if (v >= 1 && v <= 10 && v % 1 === 0) out.push([cakesN(v), 'cl:c']);
+        out.push([money(v < 100 ? v * 1000 : v), 'cl:b']);
+        return out;
+      }
+      case 'done':     return [['Начать заново', 'reset']];
+      default:         return [];
     }
   }
-  function go(stage) { state.stage = stage; save(); const c = chipsFor(stage); if (c.length) chips(c); }
 
-  /* повторить текущий вопрос кнопками (после побочного ответа) */
-  function rechips() { const c = chipsFor(state.stage); if (c.length) chips(c); }
-
-  /* ═════════════════════════ СЦЕНАРИЙ ═════════════════════════ */
-
-  async function greet() {
-    await say('Здравствуйте! Я помогу выбрать торт из каталога. Подобрать вариант — или сначала подсказать по ценам?');
-    go('start');
-  }
-
-  async function askGuests(lead) {
-    await say((lead ? lead + ' ' : '') + 'Для начала — примерно сколько человек будет?');
-    go('guests');
-  }
-
-  /* 5.6 — про цену спросили сразу: отвечаем, а не уходим от ответа */
-  async function answerPrice() {
-    const a = state.answers;
-    if (!a.guests) {
-      a.askedPrice = true;
-      await say('Торты у нас от ' + money(P_MIN) + ' до ' + money(P_MAX) + ' — зависит от веса и сложности. Подскажете, на сколько человек? Тогда назову точнее.');
-      go('guests');
-      return;
-    }
-    const list = pickSingle(a, false);
-    const sums = list.map(o => o.sum);
-    await say('В каталоге торты от ' + money(P_MIN) + ' до ' + money(P_MAX) + '. ' + onN(a.guests)[0].toUpperCase() + onN(a.guests).slice(1) +
-              ' подходящие выходят примерно от ' + money(Math.min.apply(null, sums)) + ' до ' + money(Math.max.apply(null, sums)) + '.');
-    rechips();
-  }
-
-  async function setGuests(n, note) {
-    state.answers.guests = n;
+  /* задать вопрос: первый раз — полностью, повторно — коротко */
+  async function ask(key, text) {
+    const first = !state.asked[key];
+    state.ask = key;
+    state.asked[key] = true;
     save();
-    if (note) await say(note);
-    await afterGuests();
+    const q = QUESTIONS[key];
+    await say(text || (first ? val(q.full) : val(q.short)) || val(q.short));
+    chips(chipsFor(key));
+  }
+  const reask = () => ask(state.ask);
+
+  /* ═════════════════════════ ФАКТЫ ═════════════════════════ */
+
+  function setGuests(n, approx) {
+    const f = F();
+    if (f.guests === n) return false;
+    f.guests = n;
+    f.guestsApprox = !!approx;
+    if (!f.cakesExplicit) { f.cakes = null; f.tiered = false; f.both = false; }
+    f.mismatchOk = false; f.shortChoice = null; state.pending = null;
+    return true;
+  }
+  function setCakes(n) {
+    const f = F();
+    if (f.cakes === n && f.cakesExplicit) return false;
+    f.cakes = n; f.cakesExplicit = true; f.tiered = false; f.both = false;
+    f.mismatchOk = false; f.shortChoice = null; state.pending = null;
+    return true;
+  }
+  function setBudget(b) {
+    const f = F();
+    f.budget = b && (b.max || b.min) ? { min: b.min || null, max: b.max || null } : null;
+    f.budgetDone = true;
+    state.pending = null;
+  }
+  function budgetLabel(b) {
+    if (!b) return 'без ограничений';
+    if (b.min && b.max) return 'в пределах ' + num(b.min) + '–' + money(b.max);
+    if (b.max) return 'до ' + money(b.max);
+    return 'от ' + money(b.min);
+  }
+  function setFlavors(list) {
+    const f = F();
+    const need = multi() ? 2 : 1;
+    list.forEach(k => {
+      if (f.flavors.indexOf(k) > -1) return;
+      if (f.flavors.length < need) f.flavors.push(k);
+      else if (need === 1) f.flavors = [k];
+    });
+    f.shortChoice = null;
   }
 
-  /* 5.3 — пороги */
-  async function afterGuests() {
-    const a = state.answers, n = a.guests;
-
-    if (a.askedPrice) {
-      a.askedPrice = false;
-      const sums = pickSingle(a, false).map(o => o.sum);
-      await say('Тогда точнее: ' + onN(n) + ' торты выходят примерно от ' + money(Math.min.apply(null, sums)) + ' до ' + money(Math.max.apply(null, sums)) + '.');
-    }
-
-    if (n <= 7) {
-      a.plan = 'one';
-      await say('Одного торта хватит с запасом.');
-      return askFlavor();
-    }
-    if (n <= 15) {
-      a.plan = 'one';
-      await say('Хватит одного торта — примерно на ' + kg(needW(n)) + '.');
-      return askFlavor();
-    }
-    if (n <= 30) {
-      const c = compare(n, 2);
-      const extra = Math.round(c.sumMany - c.sumOne);
-      await say('Гостей прилично. Один торт на такую компанию — это около ' + kg(c.one) + ': резать неудобно, да и один вкус нравится не всем. ' +
-                'Обычно в таком случае берут два торта поменьше и разных — например, шоколадный и фруктовый, — чтобы каждый нашёл своё. ' +
-                (extra > 0
-                  ? 'Сразу скажу честно: два торта выйдут немного дороже одного большого. '
-                  : 'По деньгам, если считать по весу, выйдет примерно одинаково. ') +
-                'Посмотрим вариант с двумя или всё-таки один?');
-      return go('plan2');
-    }
-    await say('Компания большая — тут два пути. Несколько тортов, обычно три: разные вкусы, и резать проще. ' +
-              'Или один многоярусный: эффектнее смотрится на фото, но вкус будет один. Что для вас важнее?');
-    go('plan3');
+  /* «Понял: 3 торта, 15 гостей, бюджет до 15 000 ₽.» */
+  function confirmLine(c) {
+    const parts = [];
+    if (c.cakes != null) parts.push(cakesN(c.cakes));
+    if (c.guests != null) parts.push((c.approx ? 'примерно ' : '') + guestsN(c.guests));
+    if (c.budget) parts.push('бюджет ' + budgetLabel(c.budget));
+    if (c.flavors && c.flavors.length) parts.push('вкус ' + c.flavors.map(k => FLAVORS[k].say).join(' и '));
+    if (c.occasion) parts.push(OCC_SAY[c.occasion]);
+    return parts.length ? 'Понял: ' + parts.join(', ') + '.' : '';
   }
 
-  async function explainDiff() {
-    const n = state.answers.guests, c = compare(n, 2);
-    const half = money(c.each * MED_KG);
-    const diff = Math.round(c.sumMany - c.sumOne);
-    await say('Считаю по средней цене за килограмм в каталоге — ' + money(MED_KG) + '. ' +
-              'Один торт ' + onN(n) + ': ' + kg(c.one) + ' — около ' + money(c.sumOne) + '. ' +
-              'Два торта по ' + kg(c.each) + ': ' + half + ' + ' + half + ' = ' + money(c.sumMany) + '. ' +
-              (diff > 0 ? 'Разница — около ' + money(diff) + '.' : 'Разницы по весу нет.') +
-              ' Точная сумма зависит от того, какие торты выберем. Решать вам.');
-    go('plan2b');
+  /* ═════════════════════════ ПЛАНИРОВЩИК ═════════════════════════ */
+
+  function plan2Text() {
+    const n = F().guests, c = compare(n, 2);
+    return 'Гостей прилично. Один торт на такую компанию — это около ' + kg(c.one) + ': резать неудобно, да и один вкус нравится не всем. ' +
+           'Обычно в таком случае берут два торта поменьше и разных — например, шоколадный и фруктовый, — чтобы каждый нашёл своё. ' +
+           (c.sumMany - c.sumOne > 0 ? 'Сразу скажу честно: два торта выйдут немного дороже одного большого. '
+                                     : 'По деньгам, если считать по весу, выйдет примерно одинаково. ') +
+           'Посмотрим вариант с двумя или всё-таки один?';
+  }
+  function mismatchText() {
+    const f = F(), k = f.cakes, n = f.guests, g = Math.ceil(n / k);
+    const minW = Math.min.apply(null, pool(g, f.occasion, false).map(p => p.minWeight));
+    const total = k * Math.max(minW, rawW(g));
+    return cap(cakesN(k)) + ' ' + onN(n) + ' — получится много: даже самые маленькие вместе потянут примерно на ' + kg(total) +
+           ', а нужно около ' + kg(exactKg(n)) + '. Оставляем ' + cakesN(k) + ' или хватит одного?';
   }
 
-  async function askFlavor() {
-    const a = state.answers;
-    const multi = a.plan === 'two' || a.plan === 'three' || a.plan === 'both';
-    if (!multi) {
-      if (a.flavors[0]) return askBudget();                       // вкус назвали заранее
-      await say('Какие вкусы больше любите?');
-      return go('flavor');
-    }
-    if (!a.flavors[0]) {
-      await say('Возьмём разные вкусы, чтобы был выбор. Какой будет первый?');
-      return go('flavor1');
-    }
-    await say('Возьмём разные, чтобы был выбор. Первый — ' + FLAVORS[a.flavors[0]].say + '. А второй — что-то другое?');
-    go('flavor2');
-  }
+  async function next() {
+    const f = F();
+    if (f.guests == null) return ask('guests');
 
-  async function setFlavor(key) {
-    const a = state.answers, st = state.stage;
-    if (st === 'flavor') { a.flavors = [key]; save(); return askBudget(); }
-    if (st === 'flavor1') {
-      a.flavors = [key];
-      if (key === 'any') { a.flavors = ['any', 'any']; save(); await say('Хорошо, тогда подберу разные сам.'); return askBudget(); }
+    if (f.askedPrice) {
+      f.askedPrice = false;
+      const sums = pickSingle(f.guests, null, f.occasion, false).map(o => o.sum);
+      await say('Тогда точнее: ' + onN(f.guests) + ' торты выходят примерно от ' + money(Math.min.apply(null, sums)) + ' до ' + money(Math.max.apply(null, sums)) + '.');
+    }
+
+    // своё мнение о количестве — только если человек сам не назвал число
+    if (f.cakes == null) {
+      const n = f.guests;
+      if (n <= 7)  { f.cakes = 1; await say('Одного торта хватит с запасом.'); }
+      else if (n <= 15) { f.cakes = 1; await say('Хватит одного торта — примерно на ' + kg(needW(n)) + '.'); }
+      else if (n <= 30) return ask('plan2');
+      else return ask('plan3');
       save();
-      await say('А второй — что-то другое?');
-      return go('flavor2');
     }
-    if (st === 'flavor2') {
-      a.flavors[1] = key;
-      save();
-      if (a.plan === 'three' || a.plan === 'both') await say('Третий возьму из хитов каталога — другим тортом, не повторяя первые два.');
-      return askBudget();
-    }
+
+    // явно названное число тортов — закон; переспрашиваем один раз, если оно не бьётся с гостями
+    if (f.cakesExplicit && f.cakes > 1 && !f.mismatchOk && f.guests / f.cakes < 3) return ask('mismatch');
+
+    const want = f.tiered ? 1 : Math.min(f.cakes, 2);
+    if (!f.flavorAny && f.flavors.length < want) return ask(f.flavors.length === 0 ? 'flavor1' : 'flavor2');
+    if (!f.budgetDone) return ask('budget');
+    return present();
   }
 
-  async function askBudget() {
-    const multi = ['two', 'three', 'both'].indexOf(state.answers.plan) > -1;
-    if (state.answers.budget) return present();                    // бюджет уже назвали
-    await say(multi ? 'Есть примерный бюджет — на все торты вместе? Если нет — просто пропустите.'
-                    : 'Есть примерный бюджет? Если нет — просто пропустите.');
-    go('budget');
-  }
+  /* ═════════════════════════ ПОДБОР ═════════════════════════ */
 
-  async function setBudget(b, confirm) {
-    state.answers.budget = (b && (b.max || b.min)) ? { min: b.min || null, max: b.max || null } : null;
-    save();
-    if (confirm && state.answers.budget) await say('Понял, ориентируемся ' + budgetLabel(state.answers.budget) + '.');
-    await present();
-  }
-
-  /* ───────────────────────── подбор ───────────────────────── */
   async function present() {
-    const plan = state.answers.plan;
+    const f = F();
     let r;
-    if (plan === 'one')         r = await presentSingle(false);
-    else if (plan === 'tiered') r = await presentSingle(true);
-    else if (plan === 'two')    r = await presentCombo(2);
-    else if (plan === 'three')  r = await presentCombo(3);
-    else if (plan === 'both') {
+    if (f.both) {
       await say('Покажу оба варианта — сравните сами.');
       r = await presentSingle(true, 'Вариант 1 — многоярусный');
       if (r !== 'pending') r = await presentCombo(3, 'Вариант 2 — три торта');
-    }
+    } else if (f.tiered) r = await presentSingle(true);
+    else if (f.cakes > 1) r = await presentCombo(f.cakes);
+    else r = await presentSingle(false);
     if (r !== 'pending') await finish();
   }
 
   async function presentSingle(tiered, title) {
-    const a = state.answers, n = a.guests, f = a.flavors[0], b = a.budget, max = b && b.max;
-    const list = pickSingle(a, tiered);
+    const f = F(), n = f.guests, fl = f.flavorAny ? null : f.flavors[0], b = f.budget, max = b && b.max;
+    const list = pickSingle(n, fl, f.occasion, tiered);
     const within = max ? list.filter(o => o.sum <= max) : list;
 
-    // 5.10 — бюджет мал: говорим прямо, без уговоров и без «урежем вес»
+    // бюджет мал даже для самого доступного — прямо, без уговоров и без «урежем вес»
     if (!within.length) {
       const cheap = list.slice().sort((x, y) => x.sum - y.sum)[0];
-      state.pending = { kind: 'show', items: [{ id: cheap.p.id, g: n, why: 'Самый доступный ' + (tiered ? 'многоярусный ' : '') + 'вариант ' + onN(n) + '.' }] };
-      await say('Самый доступный ' + (tiered ? 'многоярусный ' : '') + 'торт ' + onN(n) + ' у нас — ' + money(cheap.sum) + '. Это ' +
-                (cheap.sum <= max * 1.25 ? 'чуть ' : '') + 'выше вашего бюджета. Если готовы рассмотреть — покажу, если нет, ничего страшного.');
-      go('over');
+      state.pending = { kind: 'over', items: [{ id: cheap.p.id, g: n, why: whyOne(cheap, fl, null, 1) }] };
+      await ask('over', 'Самый доступный ' + (tiered ? 'многоярусный ' : '') + 'торт ' + onN(n) + ' у нас — ' + money(cheap.sum) + '. Это ' +
+                        (cheap.sum <= max * 1.25 ? 'чуть ' : '') + 'выше вашего бюджета. Если готовы рассмотреть — покажу, если нет, ничего страшного.');
       return 'pending';
     }
 
-    const top = tiered ? within.slice(0, 2) : topByFlavor(within, f, 3);
-    const lead = title ? '' : (hasTags(f)
-      ? 'Вот что подойдёт ' + onN(n) + ' — вкус ' + FLAVORS[f].say + ':'
-      : 'Вот что подойдёт ' + onN(n) + ':');
-    if (lead) await say(lead);
-    recs(top.map(o => ({ id: o.p.id, g: n, why: whySingle(o, f, b) })), title);
+    let top, mCount = 0;
+    if (hasTags(fl)) {
+      const m = within.filter(o => matches(o.p, fl));
+      mCount = m.length;
+      if (tiered || m.length >= 2 || f.shortChoice === 'only') top = (m.length ? m : within).slice(0, tiered ? 2 : 3);
+      else if (!f.shortChoice) {
+        // 4 — подходящих по вкусу мало: не добиваем молча, а спрашиваем
+        state.pending = { kind: 'short', m: m.length };
+        await ask('short', m.length
+          ? cap(FLAVORS[fl].many) + ' подходящих — один. Добавить к нему другие вкусы или показать только ' + FLAVORS[fl].say + '?'
+          : cap(FLAVORS[fl].many) + ' на такой вес' + (max ? ' и бюджет' : '') + ' не нашлось. Показать другие вкусы?');
+        return 'pending';
+      } else top = m.concat(within.filter(o => !matches(o.p, fl))).slice(0, 3);
+    } else top = within.slice(0, tiered ? 2 : 3);
 
-    // 5.9 — бюджет с запасом: не подтягиваем к потолку, только предлагаем
+    if (!title) await say('Вот что подойдёт ' + onN(n) + ':');
+    recs(top.map(o => ({ id: o.p.id, g: n, why: whyOne(o, fl, b, mCount) })), title);
+
+    // бюджет с запасом: не подтягиваем к потолку, только предлагаем
     if (max && !title) {
       const shownMax = Math.max.apply(null, top.map(o => o.sum));
       if (shownMax <= max * 0.7) {
         const ids = top.map(o => o.p.id);
-        const up = within.filter(o => ids.indexOf(o.p.id) < 0 && o.sum > shownMax && (!hasTags(f) || matches(o.p, f)))
+        const up = within.filter(o => ids.indexOf(o.p.id) < 0 && o.sum > shownMax && (!hasTags(fl) || matches(o.p, fl)))
                          .sort((x, y) => y.sum - x.sum)[0];
         if (up) {
-          state.pending = { kind: 'show', items: [{ id: up.p.id, g: n, why: 'Подороже, но тоже ' + sizeNote(up) + ' и в рамках бюджета.' }] };
-          await say('Под ваши условия это подходит — от ' + money(Math.min.apply(null, top.map(o => o.sum))) +
-                    ', заметно ниже вашего потолка. Если хочется чего-то поинтереснее, есть вариант за ' + money(up.sum) + ' — показать?');
-          go('upgrade');
+          state.pending = { kind: 'upgrade', items: [{ id: up.p.id, g: n, why: whyOne(up, fl, b, 1) }] };
+          await ask('upgrade', 'Это заметно ниже вашего потолка в ' + money(max) + '. Если хочется чего-то поинтереснее, есть вариант за ' + money(up.sum) + ' — показать?');
           return 'pending';
         }
         await say('Все варианты заметно ниже вашего потолка в ' + money(max) + '.');
@@ -665,252 +786,298 @@
     return 'ok';
   }
 
-  async function showSet(c, k, title) {
-    const g = c.set[0].g;
-    if (!title) await say((k === 2 ? 'Предлагаю два разных торта, каждый ' : 'Предлагаю три торта, каждый ') + onN(g) + ':');
-    recs(c.set.map((o, i) => ({ id: o.p.id, g: g, why: whySlot(o, c.slots[i], i) })), title);
-    const parts = c.set.map(o => money(o.sum));
-    let line = CAKES_WORD[k] + ': ' + parts.join(' + ') + ' = ' + money(c.sum) + '.';   // 5.7 — итог явно
-    const max = state.answers.budget && state.answers.budget.max;
-    if (max && c.sum <= max * 0.7) line += ' Это заметно ниже вашего потолка.';
+  function totalNote(w, n) {
+    const r = w / exactKg(n);
+    if (r < 1.25) return 'как раз ' + onN(n);
+    if (r < 1.5) return onN(n) + ' с запасом';
+    return 'это больше, чем нужно ' + onWho(n) + ' (около ' + kg(exactKg(n)) + ') — так выходит из-за минимального веса тортов';
+  }
+
+  /* 6 — несколько тортов: одна строка итога с суммой и весом */
+  async function showSet(c, title) {
+    const f = F(), k = c.set.length, n = f.guests, max = f.budget && f.budget.max;
+    if (!title) await say('Предлагаю ' + CAKES_WORD[k] + ', каждый ' + onN(c.g) + ':');
+    recs(c.set.map((o, i) => ({ id: o.p.id, g: c.g, why: whySlot(o, c.slots[i], i) })), title);
+    let line = cap(CAKES_WORD[k]) + ': ' + c.set.map(o => num(o.sum)).join(' + ') + ' = ' + money(c.sum) +
+               ', вместе ' + kg(c.w) + ' — ' + totalNote(c.w, n) + '.';
+    if (max) line += ' Бюджет ' + money(max) + (c.sum <= max ? ', укладываемся.' : ' — выходит больше на ' + money(c.sum - max) + '.');
     await say(line);
   }
 
   async function presentCombo(k, title) {
-    const a = state.answers, max = a.budget && a.budget.max;
-    const all = combos(a, k);
+    const f = F(), max = f.budget && f.budget.max;
+    const flv = f.flavorAny ? [] : f.flavors;
+    const all = combos(f.guests, k, flv, f.occasion);
+    if (!all.length) { await say('Столько разных подходящих тортов в каталоге нет — подберу из того, что есть.'); return presentSingle(false, title); }
     const within = max ? all.filter(c => c.sum <= max) : all;
-    if (within.length) { await showSet(within[0], k, title); return 'ok'; }
+    if (within.length) { await showSet(within[0], title); return 'ok'; }
 
-    // 5.7 — не влезло: ищем комбинацию поменьше, которая влезает, а не молчим о превышении
-    const cheapSet = all.slice().sort((x, y) => x.sum - y.sum)[0];
-    for (let j = k - 1; j >= 1; j--) {
-      if (j === 1) {
-        const one = pickSingle(a, false).filter(o => o.sum <= max);
-        if (one.length) {
-          const o = topByFlavor(one, a.flavors[0], 1)[0];
-          state.pending = {
-            kind: 'fewer',
-            fewer: { items: [{ id: o.p.id, g: a.guests, why: whySingle(o, a.flavors[0], a.budget) }], line: 'Один торт: ' + money(o.sum) + '.' },
-            many: { k: k }
-          };
-          await say(CAKES_WORD[k] + ' в ' + budgetLabel(a.budget) + ' не помещаются — самый доступный набор выходит ' + money(cheapSet.sum) +
-                    '. Зато помещается один торт на всех — ' + money(o.sum) + '. Показать его?');
-          go('fewer');
-          return 'pending';
-        }
-      } else {
-        const smaller = combos(a, j).filter(c => c.sum <= max)[0];
-        if (smaller) {
-          state.pending = { kind: 'fewer', fewerK: j, many: { k: k } };
-          await say(CAKES_WORD[k] + ' в ' + budgetLabel(a.budget) + ' не помещаются — самый доступный набор выходит ' + money(cheapSet.sum) +
-                    '. А ' + CAKES_WORD[j].toLowerCase() + ' помещаются — ' + money(smaller.sum) + '. Показать?');
-          go('fewer');
-          return 'pending';
-        }
-      }
+    // не влезло: число тортов не меняем сами — спрашиваем
+    const cheap = all.slice().sort((x, y) => x.sum - y.sum)[0];
+    let j = 0;
+    for (let t = k - 1; t >= 1 && !j; t--) {
+      const ok = t === 1 ? pickSingle(f.guests, flv[0], f.occasion, false).some(o => o.sum <= max)
+                         : combos(f.guests, t, flv, f.occasion).some(c => c.sum <= max);
+      if (ok) j = t;
     }
-    // 5.10 — не влезает даже один торт
-    const cheapOne = pickSingle(a, false).slice().sort((x, y) => x.sum - y.sum)[0];
-    state.pending = { kind: 'show', items: [{ id: cheapOne.p.id, g: a.guests, why: 'Самый доступный вариант ' + onN(a.guests) + '.' }] };
-    await say('Самый доступный вариант ' + onN(a.guests) + ' — один торт за ' + money(cheapOne.sum) + '. Это ' +
-              (cheapOne.sum <= max * 1.25 ? 'чуть ' : '') + 'выше вашего бюджета. Если готовы рассмотреть — покажу, если нет, ничего страшного.');
-    go('over');
+    if (j) {
+      state.pending = { kind: 'fewer', k: k, j: j };
+      await ask('fewer', cap(CAKES_WORD[k]) + ' в ' + budgetLabel(f.budget) + ' не укладываются — самый доступный набор выходит ' + money(cheap.sum) +
+                         '. ' + cap(CAKES_WORD[j]) + ' укладывается. Показать набор или подобрать меньше тортов?');
+      return 'pending';
+    }
+    state.pending = { kind: 'over', set: cheap.set.map(o => o.p.id), k: k };
+    await ask('over', 'Самый доступный набор — ' + money(cheap.sum) + '. Это ' + (cheap.sum <= max * 1.25 ? 'чуть ' : '') +
+                      'выше вашего бюджета. Если готовы рассмотреть — покажу, если нет, ничего страшного.');
     return 'pending';
   }
 
   async function finish() {
     state.pending = null;
-    await say('Нажмите на карточку — откроется описание и калькулятор веса. Захотите что-то поменять — начните заново.');
-    go('done');
+    await ask('done');
   }
 
-  /* ответы на «отложенные» вопросы */
-  async function resolvePending(v) {
-    const pnd = state.pending, a = state.answers;
+  async function resolvePending(kind, v) {
+    const p = state.pending, f = F();
     state.pending = null; save();
-    if (!pnd) return finish();
+    if (!p) return finish();
     if (v === 'no') {
-      await say(state.stage === 'upgrade' ? 'Хорошо, остаёмся на этом.' : 'Хорошо. Если захотите посмотреть другие варианты — я здесь.');
-      await wait(100);
-      return go('done');
+      await say(kind === 'upgrade' ? 'Хорошо, остаёмся на этом.' : 'Хорошо. Если захотите посмотреть другие варианты — я здесь.');
+      return ask('done');
     }
-    if (pnd.kind === 'show') { recs(pnd.items); return finish(); }
-    if (pnd.kind === 'fewer') {
-      if (v === 'fewer') {
-        if (pnd.fewer) { recs(pnd.fewer.items); await say(pnd.fewer.line); }
-        else await showSet(combos(a, pnd.fewerK).filter(c => c.sum <= a.budget.max)[0], pnd.fewerK);
-        return finish();
+    if (p.kind === 'over') {
+      if (p.items) recs(p.items);
+      else {
+        const g = Math.ceil(f.guests / p.k);
+        const set = p.set.map(id => option(ALL.find(x => x.id === id), g));
+        const slots = []; for (let i = 0; i < p.k; i++) slots.push(f.flavors[i] || 'any');
+        await showSet({ set: set, slots: slots, g: g, sum: set.reduce((t, o) => t + o.sum, 0), w: set.reduce((t, o) => t + o.w, 0) });
       }
+      return finish();
+    }
+    if (p.kind === 'upgrade') { recs(p.items); return finish(); }
+    if (p.kind === 'short') { f.shortChoice = v; save(); return present(); }
+    if (p.kind === 'fewer') {
       if (v === 'many') {
-        const cheap = combos(a, pnd.many.k).sort((x, y) => x.sum - y.sum)[0];
-        await showSet(cheap, pnd.many.k);
+        const cheap = combos(f.guests, p.k, f.flavorAny ? [] : f.flavors, f.occasion).sort((x, y) => x.sum - y.sum)[0];
+        await showSet(cheap);
         return finish();
       }
+      f.cakes = p.j; f.cakesExplicit = true; save();             // человек сам согласился на меньше
+      await say('Хорошо, подберу ' + CAKES_WORD[p.j] + '.');
+      return present();
     }
     return finish();
+  }
+
+  /* 5.6 — про цену спросили сразу: отвечаем, а не уходим от ответа */
+  async function answerPrice() {
+    const f = F();
+    if (!f.guests) {
+      f.askedPrice = true;
+      state.asked.guests = true;
+      await say('Торты у нас от ' + money(P_MIN) + ' до ' + money(P_MAX) + ' — зависит от веса и сложности. Подскажете, на сколько человек? Тогда назову точнее.');
+      state.ask = 'guests'; save();
+      return chips(chipsFor('guests'));
+    }
+    const sums = pickSingle(f.guests, null, f.occasion, false).map(o => o.sum);
+    await say('В каталоге торты от ' + money(P_MIN) + ' до ' + money(P_MAX) + '. ' + cap(onN(f.guests)) +
+              ' подходящие выходят примерно от ' + money(Math.min.apply(null, sums)) + ' до ' + money(Math.max.apply(null, sums)) + '.');
+    return reask();
+  }
+
+  async function explainDiff() {
+    const f = F(), n = f.guests, c = compare(n, 2), half = money(c.each * MED_KG), diff = Math.round(c.sumMany - c.sumOne);
+    f.diffShown = true; save();
+    await say('Считаю по средней цене за килограмм в каталоге — ' + money(MED_KG) + '. ' +
+              'Один торт ' + onN(n) + ': ' + kg(c.one) + ' — около ' + money(c.sumOne) + '. ' +
+              'Два торта по ' + kg(c.each) + ': ' + half + ' + ' + half + ' = ' + money(c.sumMany) + '. ' +
+              (diff > 0 ? 'Разница — около ' + money(diff) + '.' : 'Разницы по весу нет.') +
+              ' Точная сумма зависит от того, какие торты выберем. Решать вам.');
+    return ask('plan2');
+  }
+
+  /* 2.2 / 2.3 — не поняли: коротко, без повтора; второй раз подряд — кнопками */
+  async function miss(offTopic) {
+    state.misses++;
+    save();
+    if (state.misses === 1) await say(offTopic ? 'Я помогаю только с выбором торта — с остальным, к сожалению, не подскажу.' : 'Не уловил — уточните, пожалуйста.');
+    else if (state.misses === 2) await say('Давайте кнопками, так быстрее.');
+    chips(chipsFor(state.ask));
   }
 
   /* ═════════════════════════ ВВОД ═════════════════════════ */
 
   async function onChip(v, label) {
-    if (busy) return;
     me(label);
-    const st = state.stage, a = state.answers;
+    state.misses = 0;
+    const f = F();
+    const [kind, arg] = v.indexOf(':') > -1 ? v.split(':') : [v, ''];
 
     if (v === 'reset') return restart();
-    if (st === 'start' || st === 'browse') {
-      if (v === 'choose') return askGuests('Давайте подберу.');
-      if (v === 'price')  return answerPrice();
-      if (v === 'browse') { await say('Хорошо, не буду мешать. Если понадобится помощь с выбором — я здесь.'); return go('browse'); }
+    if (v === 'choose') return ask('guests', 'Давайте подберу. Для начала — примерно сколько человек будет?');
+    if (v === 'price') return answerPrice();
+    if (v === 'browse') return ask('browse');
+    if (v === 'more') return ask('guests_more');
+    if (v === 'unsure') return ask('guests_unsure');
+    if (v === 'diff') return explainDiff();
+    if (v === 'g10') { setGuests(10, true); await say('Хорошо, буду считать примерно на 10 человек — потом уточним.'); return next(); }
+    if (v.indexOf('g~') === 0) { const n = +v.slice(2); setGuests(n, true); await say(confirmLine({ guests: n, approx: true })); return next(); }
+    if (kind === 'g') { setGuests(+arg, false); return next(); }
+    if (kind === 'c') { setCakes(+arg); return next(); }
+    if (kind === 'p') {
+      if (arg === 'tiered') { f.cakes = 1; f.cakesExplicit = true; f.tiered = true; }
+      else if (arg === 'both') { f.cakes = 3; f.both = true; }
+      else setCakes(3);
+      save();
+      return next();
     }
-    if (st === 'guests') {
-      if (v === 'unsure') {
-        await say('Ничего страшного, давайте прикинем. Это скорее небольшой круг — семья, пара друзей? Или большое застолье?');
-        return go('guests_unsure');
-      }
-      if (v === 'more') { await say('А примерно сколько?'); return go('guests_more'); }
-      const n = +v;
-      return setGuests(n, n === 8 ? 'Хорошо, считаю примерно на 8 человек.' : n === 15 ? 'Хорошо, считаю примерно на 15 человек.' : '');
+    if (kind === 'm') { if (arg === 'one') setCakes(1); else f.mismatchOk = true; save(); return next(); }
+    if (kind === 'f') {
+      if (arg === 'any') {
+        if (state.ask === 'flavor2') f.flavors[1] = 'any';
+        else { f.flavorAny = true; if (multi()) await say('Хорошо, тогда подберу разные сам.'); }
+      } else setFlavors([arg]);
+      if (state.ask === 'flavor2' && f.cakes >= 3) await say('Остальные возьму из хитов каталога — другими тортами, не повторяя первые два.');
+      save();
+      return next();
     }
-    if (st === 'guests_more') return setGuests(+v, 'Хорошо, считаю примерно ' + onN(+v) + '.');
-    if (st === 'guests_unsure') {
-      if (v === '10') return setGuests(10, 'Хорошо, буду считать примерно на 10 человек — потом уточним.');
-      return setGuests(+v, 'Хорошо, считаю примерно ' + onN(+v) + '.');
+    if (kind === 'b') {
+      setBudget({ lt3: { max: 3000 }, '3-6': { min: 3000, max: 6000 }, gt6: { min: 6000 } }[arg] || null);
+      save();
+      return next();
     }
-    if (st === 'plan2' || st === 'plan2b') {
-      if (v === 'diff') return explainDiff();
-      a.plan = v === 'two' ? 'two' : 'one';
-      if (a.plan === 'one') await say('Хорошо, один торт — примерно на ' + kg(needW(a.guests)) + '.');
-      return askFlavor();
-    }
-    if (st === 'plan3') { a.plan = v; save(); return askFlavor(); }
-    if (st === 'flavor' || st === 'flavor1' || st === 'flavor2') return setFlavor(v);
-    if (st === 'budget') {
-      const map = { lt3: { max: 3000 }, '3-6': { min: 3000, max: 6000 }, gt6: { min: 6000 } };
-      return setBudget(map[v] || null, false);
-    }
-    if (st === 'over' || st === 'fewer' || st === 'upgrade') return resolvePending(v);
+    if (kind === 's') return resolvePending('short', arg);
+    if (kind === 'o') return resolvePending('over', arg === 'show' ? 'show' : 'no');
+    if (kind === 'u') return resolvePending('upgrade', arg === 'show' ? 'show' : 'no');
+    if (kind === 'fw') return resolvePending('fewer', arg);
+    if (kind === 'cl') return applyClarify(arg);
+  }
+
+  async function applyClarify(what) {
+    const p = state.pending, v = p.vals.shift(), c = {};
+    if (what === 'g') { setGuests(clampG(v), false); c.guests = clampG(v); }
+    else if (what === 'c') { setCakes(v); c.cakes = v; }
+    else { const b = { max: v < 100 ? v * 1000 : v }; setBudget(b); c.budget = b; }
+    state.pending = p.vals.length ? p : null;
+    save();
+    await say(confirmLine(c));
+    if (state.pending) return ask('clarify', 'А ' + num(state.pending.vals[0]) + ' — это гости, торты или бюджет?');
+    return next();
   }
 
   async function onText(raw) {
     const text = raw.trim();
     if (!text) return;
     me(text);
-    const t = norm(text);
-    const st = state.stage, a = state.answers;
+    const t = norm(text), st = state.ask, f = F();
 
-    if (/^(заново|сначала|начать заново|сброс)/.test(t)) return restart();
+    if (INTENT.restart.test(t)) return restart();
 
-    const occ = detectOccasion(t);
-    if (occ) { a.occasion = occ; save(); }
+    // честные ответы на «не про выбор»
+    if (INTENT.contacts.test(t))    { state.misses = 0; await say('Это демо-сайт, реальные контакты владелец заполнит сам.'); return reask(); }
+    if (INTENT.composition.test(t)) { state.misses = 0; await say('Состав и аллергены заполняет владелец — я их не знаю и гадать не буду.'); return reask(); }
+    if (INTENT.discount.test(t))    { state.misses = 0; await say('Про скидки и акции ничего сказать не могу — это решает владелец. Я помогаю с выбором торта.'); return reask(); }
 
-    // 5.12 — честные ответы на «не про выбор»
-    if (INTENT.contacts.test(t)) { await say('Это демо-сайт, реальные контакты владелец заполнит сам.'); return rechips(); }
-    if (INTENT.composition.test(t)) { await say('Состав и аллергены заполняет владелец — я их не знаю и гадать не буду.'); return rechips(); }
-    if (INTENT.discount.test(t)) { await say('Про скидки и акции ничего сказать не могу — это решает владелец. Я помогаю с выбором торта.'); return rechips(); }
+    const x = extract(text, st);
+    const c = {};             // что нового поняли — для строки «Понял: …»
+    let handled = false;
 
-    // ответ на текущий вопрос
-    if (st === 'guests' || st === 'guests_more' || st === 'guests_unsure') {
-      const g = parseGuests(t, false);
-      if (g && g.unsure) {
-        if (st === 'guests_unsure') return setGuests(10, 'Хорошо, буду считать примерно на 10 человек — потом уточним.');
-        await say('Ничего страшного, давайте прикинем. Это скорее небольшой круг — семья, пара друзей? Или большое застолье?');
-        return go('guests_unsure');
-      }
-      if (g && g.more) { await say('А примерно сколько?'); return go('guests_more'); }
-      if (g && g.n) {
-        const note = g.range ? 'Хорошо, считаю примерно ' + onN(g.n) + '.' : g.approx ? 'Хорошо, считаю примерно ' + onN(g.n) + '.' : '';
-        return setGuests(g.n, note);
-      }
+    // ── ответы на текущий вопрос, которые не числа ──
+    if ((st === 'guests' || st === 'guests_unsure') && x.unsure && x.guests == null) {
+      if (st === 'guests_unsure') { setGuests(10, true); await say('Хорошо, буду считать примерно на 10 человек — потом уточним.'); state.misses = 0; return next(); }
+      state.misses = 0;
+      return ask('guests_unsure');
     }
-    if (st === 'flavor' || st === 'flavor1' || st === 'flavor2') {
-      const f = parseFlavor(t);
-      if (f && !(st === 'flavor2' && f === a.flavors[0] && f !== 'any')) return setFlavor(f);
-      if (f) { await say('Этот вкус уже есть — давайте второй возьмём другой, чтобы был выбор.'); return rechips(); }
+    if (/^guests/.test(st) && x.guests == null && x.guestsMore == null) {
+      const approx = /небольш|семья|семьей|узк|пара друзей|немного|маленьк/.test(t) ? 6 : /средн/.test(t) ? 12 : /больш|много|застол|толп/.test(t) ? 25 : 0;
+      if (approx) { x.guests = approx; x.guestsApprox = true; }
     }
-    if (st === 'budget') {
-      const b = parseBudget(t);
-      if (b) return setBudget(b.skip || b.any ? null : b, !(b.skip || b.any));
-      // 5.8 — не распознали: не гадаем
-      await say('Не совсем понял сумму. Можно кнопкой или числом — например, «до 5000».');
-      return rechips();
+    if (x.guestsMore != null && x.guests == null) {
+      if (x.guestsMore >= 30) { x.guests = x.guestsMore + 10; x.guestsApprox = true; }
+      else { state.misses = 0; return ask('guests_more'); }
     }
-    if (st === 'plan2' || st === 'plan2b') {
-      if (/дорож|разниц|насколько/.test(t)) return explainDiff();
-      if (/два|двумя|оба|давайте|да(?![а-я])/.test(t)) return onChipSilent('two');
-      if (/один|одним|одного|большой/.test(t)) return onChipSilent('one');
+    if (st === 'plan2' && /дорож|разниц|насколько/.test(t)) { state.misses = 0; return explainDiff(); }
+    if (st === 'plan2' && x.cakes == null) {
+      if (/давай|оба|двумя|два/.test(t)) x.cakes = 2;
+      else if (/один|одним|одного|большой/.test(t)) x.cakes = 1;
     }
-    if (st === 'plan3') {
-      if (/вкус|разн|несколько|три/.test(t)) return onChipSilent('three');
-      if (/фото|вид|эффект|ярус|красив/.test(t)) return onChipSilent('tiered');
-      if (/оба|обоих|оба варианта|не знаю/.test(t)) return onChipSilent('both');
+    if (st === 'plan3' && x.cakes == null) {
+      if (/вид|фото|эффект|ярус|красив/.test(t)) { f.cakes = 1; f.cakesExplicit = true; f.tiered = true; handled = true; }
+      else if (/оба|обоих/.test(t)) { f.cakes = 3; f.both = true; handled = true; }
+      else if (/вкус|разн|несколько/.test(t)) x.cakes = 3;
     }
-    if (st === 'over' || st === 'upgrade' || st === 'fewer') {
-      if (/^(да|покажи|давай|ок|хорошо)/.test(t)) return resolvePending(st === 'fewer' ? 'fewer' : 'show');
-      if (/^(нет|не надо|не нужно|хватит)/.test(t)) return resolvePending('no');
+    if (st === 'mismatch') {
+      if (/остав|да(?![а-я])|так и|верно|точно/.test(t) && x.cakes == null) { f.mismatchOk = true; handled = true; }
     }
-
-    // старт: можно сразу написать «шоколадный торт на 12 человек, до 5000»
-    // и в конце диалога: «а если нас 21?» — считаем заново, а не «не понял»
-    if (['start', 'browse', 'done', 'over', 'fewer', 'upgrade'].indexOf(st) > -1) {
-      const g = parseGuests(t, true);
-      const f = parseFlavor(t);
-      const moneyHint = /₽|руб|бюджет|тыс|\dк|\d\s*k|не дороже|в пределах/.test(t) || /(^|[^а-я])до\s*\d{3,}/.test(t);
-      const b = moneyHint ? parseBudget(t) : null;
-      if (g && g.n) {
-        if (st !== 'start' && st !== 'browse') { state.answers = fresh().answers; state.answers.occasion = occ || a.occasion; state.pending = null; }
-        if (INTENT.price.test(t)) state.answers.askedPrice = true;   // «сколько стоит торт на 10 человек»
-        if (f && f !== 'any') state.answers.flavors = [f];
-        if (b && (b.max || b.min)) state.answers.budget = { min: b.min || null, max: b.max || null };
-        save();
-        return setGuests(g.n, '');
-      }
-      if (f && f !== 'any' && (st === 'start' || st === 'browse')) { a.flavors = [f]; save(); return askGuests('Понял, ' + FLAVORS[f].say + '. Давайте подберу.'); }
+    if ((st === 'flavor1' || st === 'flavor2') && !x.flavors.length && x.any) {
+      if (st === 'flavor2') f.flavors[1] = 'any'; else f.flavorAny = true;
+      handled = true;
+    }
+    if (st === 'flavor2' && x.flavors.length === 1 && x.flavors[0] === f.flavors[0]) {
+      state.misses = 0;
+      await say('Этот вкус уже есть — второй возьмём другой, чтобы был выбор.');
+      return chips(chipsFor('flavor2'));
+    }
+    if (st === 'budget' && !x.budget && (x.skip || x.any || x.unsure)) { setBudget(null); handled = true; }
+    if (st === 'clarify' && state.pending) {
+      const what = /гост|человек|люд/.test(t) ? 'g' : /торт/.test(t) ? 'c' : /руб|₽|бюдж|тыс|денег|сумм/.test(t) ? 'b' : '';
+      if (what) { state.misses = 0; return applyClarify(what); }
+    }
+    if (/^(over|upgrade|short|fewer)$/.test(st) && state.pending && !x.guests && !x.cakes && !x.budget) {
+      if (x.yes) { state.misses = 0; return resolvePending(st, st === 'short' ? 'add' : st === 'fewer' ? 'fewer' : 'show'); }
+      if (x.no)  { state.misses = 0; return resolvePending(st, 'no'); }
+      if (st === 'short' && /только/.test(t)) { state.misses = 0; return resolvePending('short', 'only'); }
     }
 
-    if (INTENT.price.test(t)) return answerPrice();
-    if (INTENT.choose.test(t)) {
-      if (st === 'start' || st === 'browse') return askGuests('Давайте подберу.');
+    // ── факты из сообщения — независимо от текущего шага ──
+    if (x.cakes != null && setCakes(x.cakes)) c.cakes = x.cakes;
+    if (x.guests != null && setGuests(x.guests, x.guestsApprox)) { c.guests = x.guests; c.approx = x.guestsApprox; }
+    if (x.budget) { setBudget(x.budget); c.budget = F().budget; }
+    if (x.occasion && x.occasion !== f.occasion) { f.occasion = x.occasion; c.occasion = x.occasion; f.shortChoice = null; }
+    if (x.flavors.length) {
+      const before = f.flavors.join();
+      setFlavors(x.flavors);
+      f.flavorAny = false;
+      if (f.flavors.join() !== before) c.flavors = x.flavors.filter(k => f.flavors.indexOf(k) > -1);
+    }
+    const learned = Object.keys(c).length > 0;
+    save();
+
+    // несколько чисел, и часть без опорных слов — спрашиваем, а не угадываем
+    if (x.ambiguous.length) {
+      state.misses = 0;
+      if (learned) await say(confirmLine(c));
+      state.pending = { kind: 'clarify', vals: x.ambiguous.slice() };
+      return ask('clarify', 'Не уверен, к чему относится ' + num(x.ambiguous[0]) + ' — это гости, торты или бюджет?');
+    }
+
+    if (learned || handled) {
+      state.misses = 0;
+      if (learned) await say(confirmLine(c));
+      return next();
+    }
+
+    // ── остальное ──
+    if (INTENT.price.test(t)) { state.misses = 0; return answerPrice(); }
+    if (INTENT.choose.test(t) && (st === 'start' || st === 'browse' || st === 'done')) {
+      state.misses = 0;
       if (st === 'done') return restart();
+      return ask('guests', 'Давайте подберу. Для начала — примерно сколько человек будет?');
     }
-    if (INTENT.thanks.test(t)) { await say('Пожалуйста! Если что-то ещё — пишите.'); return rechips(); }
-    if (INTENT.hello.test(t)) { await say('Здравствуйте! Помочь выбрать торт?'); return rechips(); }
-
-    // не поняли — мягко переспрашиваем; вне темы — честно говорим, чем помогаю
-    if (!INTENT.domain.test(t) && ['start', 'browse', 'done'].indexOf(st) > -1) {
-      await say('Я помогаю только с выбором торта — с остальным, к сожалению, не подскажу.');
-      return rechips();
-    }
-    const hint = {
-      guests: 'Не совсем понял, сколько будет гостей. Можно числом — например, «12» — или кнопкой:',
-      guests_more: 'Не совсем понял. Сколько примерно гостей?',
-      guests_unsure: 'Не совсем понял. Какой примерно круг?',
-      flavor: 'Не совсем понял, какой вкус. Выберите вариант:',
-      flavor1: 'Не совсем понял, какой вкус. Выберите вариант:',
-      flavor2: 'Не совсем понял, какой второй вкус. Выберите вариант:',
-      plan2: 'Не совсем понял — два торта или один?',
-      plan2b: 'Не совсем понял — два торта или один?',
-      plan3: 'Не совсем понял — что важнее?'
-    }[st] || (INTENT.domain.test(t) ? 'Не совсем понял. Выберите вариант ниже:' : 'Я помогаю только с выбором торта — с остальным, к сожалению, не подскажу.');
-    await say(hint);
-    rechips();
-  }
-  /* выбор, распознанный из текста: как нажатие кнопки, но без повторного «эха» */
-  async function onChipSilent(v) {
-    const st = state.stage, a = state.answers;
-    if (st === 'plan2' || st === 'plan2b') {
-      a.plan = v === 'two' ? 'two' : 'one';
-      if (a.plan === 'one') await say('Хорошо, один торт — примерно на ' + kg(needW(a.guests)) + '.');
-      return askFlavor();
-    }
-    if (st === 'plan3') { a.plan = v; save(); return askFlavor(); }
+    if (INTENT.thanks.test(t)) { state.misses = 0; await say('Пожалуйста! Если что-то ещё — пишите.'); return chips(chipsFor(state.ask)); }
+    if (INTENT.hello.test(t))  { state.misses = 0; await say('Здравствуйте! Помочь выбрать торт?'); return chips(chipsFor(state.ask)); }
+    return miss(!INTENT.domain.test(t) && /^(start|browse|done)$/.test(st));
   }
 
   /* ───────────────────────── события чата ───────────────────────── */
   log.addEventListener('click', e => {
     const chip = e.target.closest('.chip-btn');
-    if (chip && !chip.closest('.is-done')) { onChip(chip.dataset.val, chip.textContent); return; }
+    if (chip && !chip.closest('.is-done')) {
+      chip.closest('.chips').classList.add('is-done');        // второй клик по этому ряду уже не пройдёт
+      enqueue(() => onChip(chip.dataset.val, chip.textContent));
+      return;
+    }
     const rec = e.target.closest('.rec');
     if (rec) {
       MK.openProduct(rec.dataset.id, rec);
@@ -920,19 +1087,19 @@
 
   $('#mkForm').addEventListener('submit', e => {
     e.preventDefault();
-    if (busy) return;                     // пока бот печатает — текст не теряем
     const v = input.value;
+    if (!v.trim()) return;
     input.value = '';
-    onText(v);
+    enqueue(() => onText(v));             // пока бот печатает — сообщение ждёт своей очереди
   });
 
   function restart() {
     state = fresh();
     log.innerHTML = '';
     try { localStorage.removeItem(LS_KEY); } catch (err) {}
-    greet();
+    return ask('start');
   }
-  $('#mkReset').addEventListener('click', () => { if (!busy) restart(); });
+  $('#mkReset').addEventListener('click', () => enqueue(restart));
   $('#mkClose').addEventListener('click', () => closeChat());
 
   /* ───────────────────────── открытие / закрытие ───────────────────────── */
@@ -949,14 +1116,13 @@
       started = true;
       if (load()) {
         state.entries.forEach(renderEntry);
-        // активной остаётся только последняя строка кнопок, если она последняя в ленте
         const last = state.entries[state.entries.length - 1];
         $$('.chips', log).forEach((row, i, rows) => {
           if (!(last && last.r === 'chips' && i === rows.length - 1)) row.classList.add('is-done');
         });
         toBottom();
       } else {
-        greet();
+        enqueue(() => ask('start'));
       }
     }
     if (window.innerWidth > 620) input.focus();
@@ -993,18 +1159,17 @@
   });
 
   function setFan(open) {
-    if (open && !chat.hidden) closeChat(false);     // веер раскрывается поверх панели — показываем что-то одно
+    if (open && !chat.hidden) closeChat(false);
     fan.classList.toggle('is-open', open);
     socBtn.setAttribute('aria-expanded', String(open));
     items.forEach((el, i) => {
-      el.style.transitionDelay = (open ? i : (N - 1 - i)) * STAGGER + 'ms';   // при закрытии — в обратном порядке
+      el.style.transitionDelay = (open ? i : (N - 1 - i)) * STAGGER + 'ms';
       el.tabIndex = open ? 0 : -1;
     });
   }
   socBtn.addEventListener('click', e => { e.stopPropagation(); setFan(!fan.classList.contains('is-open')); });
   document.addEventListener('click', e => { if (!fan.contains(e.target)) setFan(false); });
 
-  /* перехват: видим модалку ДО того, как её закроет app.js — один Esc закрывает что-то одно */
   document.addEventListener('keydown', e => {
     if (e.key !== 'Escape') return;
     if (fan.classList.contains('is-open')) { setFan(false); socBtn.focus(); return; }
@@ -1025,6 +1190,7 @@
   /* наружу — для отладки и тестов */
   window.MKChat = {
     streamText: streamText, open: openChat, close: closeChat, reset: restart,
-    _t: { parseGuests, parseBudget, parseFlavor, detectOccasion, pickSingle, combos, compare, P_MIN, P_MAX, MED_KG, INTENT }
+    _t: { extract, parseAmount, tokenize, pickSingle, combos, whyOne, whySlot, sizeNote, option, compare, P_MIN, P_MAX, INTENT,
+          send: onText, chip: onChip, state: () => state }
   };
 })();
