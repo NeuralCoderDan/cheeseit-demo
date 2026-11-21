@@ -1,0 +1,3786 @@
+/* ===== Цвета, шрифты, размеры ===== */
+:root {
+  --cream: #f6f2ea;        /* основной фон */
+  --cream-deep: #efe7da;   /* фон вставок */
+  --paper: #ffffff;        /* карточки и панели */
+  --powder: #f8e1ea;       /* светло-малиновая подложка */
+  --rose: #c8155c;         /* малиново-розовый из логотипа: кнопки и акценты */
+  --rose-dark: #a50f4a;    /* он же при наведении */
+  --rose-light: #e45a8f;
+  --plum: #3b1e4f;         /* тёмно-фиолетовый из логотипа: тёмные блоки */
+  --choco: #2a1a30;        /* основной текст — почти чёрный с фиолетовым */
+  --choco-soft: #6c5a70;   /* второстепенный текст */
+  --line: #e4dacd;         /* тонкие линии */
+
+  /* Одна гарнитура в разных насыщенностях: заголовки плотные, текст обычный */
+  --display: "Onest", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --text: "Onest", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+
+  --radius: 18px;
+  --gutter: 16px;
+  --bar-h: 84px; /* место под липкой кнопкой «Заказать» на телефоне */
+  /* Тени — едва заметные, только чтобы отделить карточку от фона */
+  --shadow-soft: 0 1px 2px rgba(42, 26, 48, 0.06);
+  --shadow-lift: 0 6px 16px -10px rgba(42, 26, 48, 0.25);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* «пружинка» */
+  --smooth: cubic-bezier(0.22, 0.8, 0.26, 1);
+}
+
+/* ===== Сброс и база ===== */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 76px; /* чтобы липкая шапка не закрывала заголовки */
+}
+
+body {
+  margin: 0;
+  padding-bottom: var(--bar-h);
+  font-family: var(--text);
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--choco);
+  background: var(--cream);
+  -webkit-font-smoothing: antialiased;
+}
+
+body.no-scroll {
+  overflow: hidden;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.container {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+
+:focus-visible {
+  outline: 2px solid var(--rose);
+  outline-offset: 3px;
+}
+
+.eyebrow {
+  margin: 0 0 12px;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--rose);
+}
+
+/* ===== Кнопки ===== */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 48px;
+  padding: 12px 22px;
+  border: none;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  /* ширина растёт плавно, нажатие — с пружинкой */
+  transition: padding 0.35s var(--smooth), box-shadow 0.35s var(--smooth),
+    transform 0.4s var(--spring), background-color 0.3s, color 0.3s;
+}
+
+.btn:active {
+  transform: scale(0.94);
+  transition-duration: 0.35s, 0.35s, 0.08s, 0.3s, 0.3s;
+}
+
+.btn--primary {
+  background: var(--rose);
+  color: #fff;
+}
+
+.btn--lg {
+  min-height: 56px;
+  padding: 16px 30px;
+  font-size: 16px;
+}
+
+.btn--ghost {
+  background: var(--paper);
+  border: 1px solid var(--line);
+  color: var(--choco);
+}
+
+/* Наведение: кнопка темнеет, без «растягивания» */
+@media (hover: hover) {
+  .btn--primary:hover {
+    background: var(--rose-dark);
+  }
+
+  .btn--ghost:hover {
+    border-color: var(--choco-soft);
+  }
+}
+
+.icon-btn {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 28px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.4s var(--spring);
+}
+
+.icon-btn:hover {
+  background: var(--cream-deep);
+}
+
+/* ===== Шапка ===== */
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: #fff; /* белая — у логотипа белый фон, так он сливается с шапкой */
+  border-bottom: 1px solid var(--line);
+}
+
+.header__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 4px 16px;
+  padding-top: 10px;
+  padding-bottom: 6px;
+}
+
+.logo {
+  font-family: var(--display);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  text-decoration: none;
+}
+
+/* Короткое меню: на телефоне — строка под логотипом */
+.nav {
+  display: flex;
+  order: 3;
+  width: 100%;
+  gap: 4px;
+  margin: 0 -10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nav a {
+  flex: none;
+  padding: 8px 10px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  color: var(--choco-soft);
+  transition: color 0.25s, background-color 0.25s;
+}
+
+.nav a:hover {
+  color: var(--choco);
+  background: var(--cream-deep);
+}
+
+/* ===== Первый экран ===== */
+.hero {
+  padding: 28px 0 8px;
+}
+
+.hero__title {
+  margin: 0 0 10px;
+  font-family: var(--display);
+  font-size: clamp(32px, 8.5vw, 56px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+  color: var(--plum);
+}
+
+.hero__lead {
+  max-width: 32em;
+  margin: 0 0 20px;
+  font-size: 17px;
+  color: var(--choco-soft);
+}
+
+/* ===== Секции ===== */
+.section {
+  padding: 48px 0 56px;
+}
+
+.section--alt {
+  background: var(--cream-deep);
+}
+
+.section__head {
+  margin-bottom: 22px;
+}
+
+.section__title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: clamp(30px, 7vw, 46px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+/* ===== Фильтры-плашки ===== */
+.chips {
+  display: flex;
+  gap: 8px;
+  margin: 0 calc(var(--gutter) * -1) 22px;
+  padding: 4px var(--gutter);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.chip {
+  flex: none;
+  min-height: 42px;
+  padding: 9px 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--choco-soft);
+  cursor: pointer;
+  transition: background-color 0.3s, color 0.3s, border-color 0.3s, transform 0.4s var(--spring);
+}
+
+.chip:active {
+  transform: scale(0.93);
+}
+
+.chip[aria-pressed="true"] {
+  background: var(--choco);
+  border-color: var(--choco);
+  color: var(--cream);
+}
+
+/* ===== Каталог ===== */
+.catalog {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr)); /* телефон: 2 в ряд */
+  gap: 20px;
+}
+
+.catalog__empty {
+  padding: 40px 16px;
+  border: 1px dashed #dcc8b5;
+  border-radius: var(--radius);
+  text-align: center;
+  color: var(--choco-soft);
+}
+
+.catalog__empty p {
+  margin: 0 0 14px;
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--choco);
+}
+
+/* ===== Строка над каталогом ===== */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -6px 0 18px;
+}
+
+.filter-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.4s var(--spring), box-shadow 0.3s;
+}
+
+.filter-btn:active {
+  transform: scale(0.93);
+}
+
+.filter-btn svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+}
+
+/* Точка: фильтр по цене включён */
+.filter-btn__dot {
+  position: absolute;
+  top: 6px;
+  right: 8px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--rose);
+}
+
+.found {
+  flex: 1;
+  margin: 0;
+  font-size: 14px;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--choco-soft);
+}
+
+/* ===== Фильтр по цене ===== */
+/* Телефон: панель выезжает снизу */
+.price-panel {
+  position: fixed;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 100;
+  padding: 0 20px calc(16px + env(safe-area-inset-bottom));
+  background: var(--cream);
+  border-radius: 28px 28px 0 0;
+  box-shadow: 0 -1px 0 var(--line);
+  transform: translateY(105%);
+  visibility: hidden;
+  transition: transform 0.5s var(--smooth), visibility 0s 0.5s;
+}
+
+.filters-open .price-panel {
+  transform: none;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.filters-open .overlay--filters {
+  opacity: 1;
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+.price-panel__grip {
+  width: 44px;
+  height: 5px;
+  margin: 10px auto 0;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.price-panel__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 6px -8px 14px 0;
+}
+
+.price-panel__title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  margin: 0;
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+/* Выбор веса в заголовке: «пилюля» со стрелкой — видно, что можно нажать */
+.weight-pick {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.weight-pick select {
+  min-height: 40px;
+  padding: 6px 34px 6px 14px;
+  border: 1.5px solid var(--rose-light);
+  border-radius: 999px;
+  background: var(--powder);
+  font-family: var(--text);
+  font-size: 16px; /* 16px — чтобы iPhone не увеличивал страницу */
+  font-weight: 700;
+  color: var(--choco);
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: box-shadow 0.3s, transform 0.4s var(--spring);
+}
+
+.weight-pick select:hover {
+  box-shadow: 0 0 0 5px rgba(200, 21, 92, 0.18);
+}
+
+.weight-pick select:active {
+  transform: scale(0.95);
+}
+
+.weight-pick select:focus-visible {
+  outline: 2px solid var(--rose);
+  outline-offset: 2px;
+}
+
+.weight-pick svg {
+  position: absolute;
+  right: 12px;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: var(--rose);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+.price-panel__note {
+  margin: -6px 0 14px;
+  font-size: 12px;
+  color: var(--choco-soft);
+}
+
+/* ===== Повод и сортировка в панели фильтров ===== */
+.filter-group {
+  display: block;
+  margin-bottom: 18px;
+}
+
+.filter-group__title {
+  display: block;
+  margin: 0 0 10px;
+  font-family: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--choco-soft);
+}
+
+.tag-picks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* Плашка повода с галочкой: можно выбрать несколько */
+.tag-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 8px 16px 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--choco-soft);
+  cursor: pointer;
+  transition: border-color 0.25s, color 0.25s, background-color 0.25s;
+}
+
+.tag-pick__box {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1.5px solid var(--line);
+  border-radius: 6px;
+  background: var(--cream);
+  transition: background-color 0.25s, border-color 0.25s;
+}
+
+/* Галочка рисуется рамкой: поворачиваем «уголок» */
+.tag-pick__box::after {
+  content: "";
+  width: 5px;
+  height: 9px;
+  margin-top: -2px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg) scale(0);
+  transition: transform 0.3s var(--spring);
+}
+
+.tag-pick[aria-pressed="true"] {
+  border-color: var(--rose);
+  color: var(--choco);
+}
+
+.tag-pick[aria-pressed="true"] .tag-pick__box {
+  border-color: var(--rose);
+  background: var(--rose);
+}
+
+.tag-pick[aria-pressed="true"] .tag-pick__box::after {
+  transform: rotate(45deg) scale(1);
+}
+
+.tag-pick:hover {
+  border-color: var(--choco-soft);
+}
+
+/* Выпадающий список сортировки */
+.sort-pick {
+  position: relative;
+  display: block;
+}
+
+.sort-pick select {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 40px 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  font-family: var(--text);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.sort-pick select:focus-visible {
+  outline: 2px solid var(--rose);
+  outline-offset: 2px;
+}
+
+.sort-pick svg {
+  position: absolute;
+  top: 50%;
+  right: 14px;
+  width: 14px;
+  height: 14px;
+  margin-top: -7px;
+  fill: none;
+  stroke: var(--choco-soft);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  pointer-events: none;
+}
+
+/* Число выбранных фильтров на кнопке «Фильтры» */
+.filter-btn__dot {
+  top: 2px;
+  right: 2px;
+  display: grid;
+  place-items: center;
+  width: auto;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+}
+
+.found__clear {
+  flex: none;
+  padding: 6px 0;
+  border: none;
+  background: none;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rose);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.price__inputs {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.price__dash {
+  color: var(--choco-soft);
+}
+
+.price__field {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  min-height: 50px;
+  padding: 0 14px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+
+.price__field:focus-within {
+  border-color: var(--rose-light);
+  box-shadow: 0 0 0 4px rgba(200, 21, 92, 0.18);
+}
+
+.price__field span,
+.price__field i {
+  font-size: 14px;
+  font-style: normal;
+  color: var(--choco-soft);
+}
+
+.price__field input {
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  font-weight: 600;
+  outline: none;
+}
+
+/* Ползунок с двумя ручками */
+.range {
+  position: relative;
+  height: 44px;
+  margin: 8px 11px 0;
+  cursor: pointer;
+  touch-action: pan-y; /* горизонтальное движение пальца — ползунку, вертикальное — прокрутке */
+}
+
+.range__track {
+  position: absolute;
+  top: 50%;
+  right: -11px;
+  left: -11px;
+  height: 4px;
+  margin-top: -2px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.range__fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: var(--rose);
+}
+
+/* Сами range прозрачны и не ловят мышь: перетаскивание ведёт script.js,
+   а range нужны для вида ручек и для управления с клавиатуры */
+.range input {
+  position: absolute;
+  inset: 0 -11px;
+  width: calc(100% + 22px);
+  height: 100%;
+  margin: 0;
+  background: none;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.range input::-webkit-slider-runnable-track {
+  height: 44px;
+  background: none;
+}
+
+.range input::-moz-range-track {
+  background: none;
+}
+
+.range input::-webkit-slider-thumb {
+  width: 26px;
+  height: 26px;
+  margin-top: 9px;
+  border: 3px solid var(--rose);
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: 0 4px 10px -2px rgba(42, 26, 48, 0.35);
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: transform 0.3s var(--spring);
+}
+
+.range input::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border: 3px solid var(--rose);
+  border-radius: 50%;
+  background: var(--paper);
+  box-shadow: 0 4px 10px -2px rgba(42, 26, 48, 0.35);
+  pointer-events: none;
+}
+
+.range input.is-dragging::-webkit-slider-thumb {
+  transform: scale(1.15);
+}
+
+.range input.is-dragging::-moz-range-thumb {
+  transform: scale(1.15);
+}
+
+.range.is-dragging {
+  cursor: grabbing;
+}
+
+.range input:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 6px rgba(200, 21, 92, 0.3);
+}
+
+.price-panel__foot {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: var(--paper);
+  border: 1px solid rgba(234, 217, 200, 0.7);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  transition: transform 0.5s var(--smooth), box-shadow 0.5s var(--smooth),
+    opacity 0.35s var(--smooth);
+}
+
+/* Карточка уходит и возвращается при смене фильтра */
+.card.is-out {
+  opacity: 0;
+}
+
+/* Фото торта: крупно, со скруглением */
+.media {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  margin: 10px 10px 0;
+  overflow: hidden;
+  border-radius: 18px;
+  background: var(--tint, var(--powder));
+}
+
+.media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.8s var(--smooth);
+}
+
+/* Пока нет фото — аккуратная заглушка */
+.media__ph {
+  position: absolute;
+  inset: 0;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--choco-soft);
+}
+
+.media__ph svg {
+  width: 56px;
+  height: 56px;
+  fill: none;
+  stroke: var(--rose-light);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.media.no-photo img {
+  display: none;
+}
+
+.media.no-photo .media__ph {
+  display: flex;
+}
+
+@media (hover: hover) {
+  .card:hover {
+    transform: scale(1.02);
+    box-shadow: var(--shadow-lift);
+  }
+}
+
+/* ===== Компактная карточка (телефон: 2 в ряд) ===== */
+.card {
+  border-radius: 20px;
+}
+
+/* Фото — кнопка: по нажатию открывается галерея */
+.card__zoom {
+  position: relative;
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.card .media {
+  aspect-ratio: 1 / 1;
+  margin: 6px 6px 0;
+  border-radius: 15px;
+}
+
+.card .media__ph {
+  font-size: 11px;
+}
+
+.card .media__ph svg {
+  width: 40px;
+  height: 40px;
+}
+
+/* Значок «6 фото» в углу снимка */
+.zoom-hint {
+  position: absolute;
+  right: 12px;
+  bottom: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: rgba(255, 253, 249, 0.88);
+  backdrop-filter: blur(4px);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--choco);
+  box-shadow: 0 4px 10px -6px rgba(42, 26, 48, 0.5);
+  transition: transform 0.4s var(--spring);
+}
+
+.zoom-hint svg {
+  width: 12px;
+  height: 12px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+.card__zoom:hover .zoom-hint {
+  transform: scale(1.08);
+}
+
+/* Тело карточки — вход на страницу торта */
+.card__body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  padding: 12px 12px 14px;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .card__body:hover .card__name span {
+    text-decoration: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 3px;
+  }
+}
+
+.card__name {
+  margin: 0 0 4px;
+  font-family: var(--display);
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.card__desc {
+  flex: 1; /* растягивается: низ карточек выравнивается по одной линии */
+  display: -webkit-box;
+  margin: 0 0 10px;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--choco-soft);
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 4;
+}
+
+/* Плашки веса: на телефоне сеткой 2 × 2 */
+.weights {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 5px;
+  margin-bottom: 12px;
+}
+
+.weight {
+  min-height: 40px;
+  padding: 4px 2px;
+  white-space: nowrap;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.3s, color 0.3s, border-color 0.3s, opacity 0.3s,
+    transform 0.4s var(--spring);
+}
+
+
+/* Торт с фиксированным весом: одна неактивная плашка во всю ширину */
+.weights--fixed {
+  grid-template-columns: 1fr;
+}
+
+.weight--fixed {
+  display: grid;
+  place-items: center;
+  background: var(--cream);
+  border-style: dashed;
+  color: var(--choco-soft);
+  cursor: default;
+}
+
+.weight:active {
+  transform: scale(0.92);
+}
+
+.weight[aria-checked="true"] {
+  background: var(--powder);
+  border-color: var(--rose-light);
+  color: var(--choco);
+}
+
+
+/* Цена над кнопкой, кнопка во всю ширину */
+.card__foot {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  margin-top: auto;
+}
+
+.card__price {
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.card__foot .btn {
+  min-height: 44px;
+  padding: 10px 12px;
+  font-size: 14px;
+}
+
+/* ===== Цена с «прокруткой» цифр ===== */
+.odo {
+  display: inline-flex;
+  align-items: baseline;
+}
+
+.odo__digit {
+  display: inline-block;
+  height: 1em;
+  overflow: hidden;
+  line-height: 1;
+}
+
+.odo__strip {
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.3s ease;
+}
+
+.odo__strip span {
+  height: 1em;
+}
+
+.odo__sep {
+  display: inline-block;
+  width: 0.25em;
+}
+
+/* ===== Как заказать ===== */
+.steps {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: step;
+}
+
+.step {
+  position: relative;
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  gap: 2px 16px;
+  align-items: center;
+  padding: 18px;
+  background: var(--paper);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-soft);
+  counter-increment: step;
+}
+
+.step::after {
+  content: counter(step);
+  position: absolute;
+  top: 12px;
+  right: 18px;
+  font-family: var(--display);
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--powder);
+}
+
+.step__icon {
+  display: grid;
+  grid-row: span 2;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 18px;
+  background: var(--powder);
+}
+
+.step__icon svg {
+  width: 30px;
+  height: 30px;
+  fill: none;
+  stroke: var(--rose);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.step__title {
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.step__text {
+  padding-right: 24px;
+  font-size: 14px;
+  color: var(--choco-soft);
+}
+
+/* ===== Отзывы-заглушки ===== */
+.reviews {
+  display: grid;
+  gap: 16px;
+}
+
+.review {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  background: var(--paper);
+  border: 1px dashed #dcc8b5;
+  border-radius: var(--radius);
+}
+
+.review__head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 4px;
+}
+
+/* Серые плейсхолдеры с мягким переливом */
+.ph {
+  display: block;
+  height: 12px;
+  border-radius: 999px;
+  background: #ece4dc;
+  background-size: 200% 100%;
+}
+
+.ph--avatar {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+}
+
+.ph--name {
+  width: 40%;
+  height: 14px;
+}
+
+.ph--short {
+  width: 60%;
+}
+
+.review__note {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--choco-soft);
+}
+
+/* ===== Подвал ===== */
+.footer {
+  padding: 40px 0 44px;
+  background: var(--choco);
+  color: var(--cream);
+}
+
+.footer__brand {
+  margin: 0 0 18px;
+  font-family: var(--display);
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.footer__list {
+  display: grid;
+  gap: 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: #efe1d3;
+}
+
+.footer__list span {
+  display: block;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: #b89b8b;
+}
+
+.btn--wa {
+  gap: 10px;
+  margin-top: 26px;
+  background: #1f9d57;
+  color: #fff;
+  box-shadow: var(--shadow-soft);
+}
+
+.btn--wa svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linejoin: round;
+}
+
+@media (hover: hover) {
+  .btn--wa:hover {
+    padding-inline: 30px;
+    box-shadow: var(--shadow-soft);
+  }
+}
+
+.footer__list a {
+  text-decoration: none;
+}
+
+.footer__list a:hover {
+  color: var(--powder);
+}
+
+/* ===== Затемнение ===== */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(42, 26, 48, 0.45);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.4s, visibility 0s 0.4s;
+}
+
+/* Поля формы */
+.form {
+  display: grid;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.form__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.field {
+  display: block;
+  min-width: 0;
+}
+
+.field__label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.field__label i {
+  font-style: normal;
+  font-weight: 400;
+  color: var(--choco-soft);
+}
+
+.field__hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--choco-soft);
+}
+
+.field input[type="date"],
+.field input[type="text"],
+.field input[type="tel"],
+.field textarea {
+  display: block;
+  width: 100%;
+  min-height: 50px;
+  padding: 12px 14px;
+  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  font-size: 16px; /* 16px — чтобы iPhone не увеличивал страницу */
+  transition: border-color 0.25s, box-shadow 0.25s;
+}
+
+.field textarea {
+  resize: vertical;
+}
+
+.field input:focus,
+.field textarea:focus {
+  outline: none;
+  border-color: var(--rose-light);
+  box-shadow: 0 0 0 4px rgba(200, 21, 92, 0.18);
+}
+
+.field .is-invalid {
+  border-color: #c4475f;
+}
+
+.form-error {
+  margin: 0 0 10px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: #fbe4e6;
+  font-size: 13px;
+  color: #8f2f45;
+}
+
+/* ===== Окно поверх страницы ===== */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 130;
+  display: grid;
+  place-items: center;
+  padding: var(--gutter);
+  background: rgba(42, 26, 48, 0.5);
+  animation: fade 0.3s ease;
+}
+
+.modal__card {
+  position: relative;
+  width: min(360px, 100%);
+  padding: 28px 24px 24px;
+  background: var(--paper);
+  border-radius: 28px;
+  box-shadow: var(--shadow-lift);
+  text-align: center;
+  animation: modal-in 0.5s var(--spring);
+}
+
+.modal__close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+}
+
+.modal__title {
+  margin: 0 0 4px;
+  font-family: var(--display);
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.modal__sum {
+  margin: 0 0 16px;
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--rose);
+}
+
+@keyframes fade {
+  from { opacity: 0; }
+}
+
+@keyframes modal-in {
+  from { opacity: 0; transform: scale(0.9) translateY(16px); }
+}
+
+/* ===== Галерея фото на весь экран ===== */
+.lb {
+  position: fixed;
+  inset: 0;
+  z-index: 140;
+  display: flex;
+  flex-direction: column;
+  padding: calc(10px + env(safe-area-inset-top)) var(--gutter) calc(14px + env(safe-area-inset-bottom));
+  background: rgba(42, 26, 48, 0.94);
+  backdrop-filter: blur(8px);
+  color: var(--cream);
+  animation: fade 0.3s ease;
+}
+
+.lb__top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.lb__title {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.lb__label {
+  margin: 2px 0 0;
+  font-size: 13px;
+  color: #cdb6a6;
+}
+
+.lb__close {
+  flex: none;
+  color: var(--cream);
+}
+
+.lb__close:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Большое фото по центру */
+.lb__stage {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 14px 0;
+  touch-action: pan-y; /* свайп влево-вправо листает фото */
+}
+
+.lb__frame {
+  width: min(100%, 640px);
+  max-height: 100%;
+  aspect-ratio: 1 / 1;
+  animation: modal-in 0.45s var(--spring);
+}
+
+/* На широком экране высота важнее ширины */
+@media (min-aspect-ratio: 3/4) {
+  .lb__frame {
+    width: auto;
+    height: 100%;
+  }
+}
+
+.lb__frame .media {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  border-radius: 22px;
+  box-shadow: var(--shadow-soft);
+}
+
+.lb__frame .media:not(.no-photo) {
+  background: none;
+  box-shadow: none;
+}
+
+/* Фото показываем целиком, без обрезки */
+.lb__frame .media img {
+  object-fit: contain;
+}
+
+.lb__frame .media__ph {
+  font-size: 14px;
+}
+
+.lb__arrow {
+  position: absolute;
+  top: 50%;
+  z-index: 2;
+  display: none;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-top: -26px;
+  padding: 0 0 4px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 253, 249, 0.12);
+  color: var(--cream);
+  font-size: 34px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.3s, transform 0.4s var(--spring);
+}
+
+.lb__arrow:hover {
+  background: rgba(255, 253, 249, 0.24);
+  transform: scale(1.08);
+}
+
+.lb__arrow:active {
+  transform: scale(0.92);
+}
+
+.lb__arrow--prev {
+  left: 0;
+}
+
+.lb__arrow--next {
+  right: 0;
+}
+
+/* Полоса превью: 6 фото */
+.lb__thumbs {
+  display: flex;
+  gap: 6px;
+  justify-content: safe center;
+  margin: 0 calc(var(--gutter) * -1);
+  padding: 4px var(--gutter);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.lb__thumb {
+  flex: none;
+  width: 52px;
+  padding: 0;
+  border: none;
+  background: none;
+  color: #cdb6a6;
+  font-size: 10px;
+  line-height: 1.2;
+  text-align: center;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.3s, transform 0.4s var(--spring);
+}
+
+.lb__thumb:hover {
+  opacity: 0.9;
+}
+
+.lb__thumb:active {
+  transform: scale(0.92);
+}
+
+.lb__thumb .media {
+  width: 52px;
+  height: 52px;
+  margin: 0 0 6px;
+  border-radius: 12px;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition: outline-color 0.3s;
+}
+
+.lb__thumb .media__ph svg {
+  width: 24px;
+  height: 24px;
+}
+
+.lb__thumb .media__ph small {
+  display: none;
+}
+
+.lb__thumb[aria-current="true"] {
+  color: var(--cream);
+  opacity: 1;
+}
+
+.lb__thumb[aria-current="true"] .media {
+  outline-color: var(--rose-light);
+}
+
+@media (min-width: 640px) {
+  .lb__thumb {
+    width: 84px;
+    font-size: 11px;
+  }
+
+  .lb__thumb .media {
+    width: 84px;
+    height: 84px;
+  }
+}
+
+@media (min-width: 1000px) {
+  .lb {
+    padding: 22px 40px 26px;
+  }
+
+  .lb__title {
+    font-size: 34px;
+  }
+
+  .lb__stage {
+    padding: 20px 76px;
+  }
+
+  .lb__arrow {
+    display: grid;
+  }
+}
+
+/* ===== Планшеты ===== */
+@media (min-width: 640px) {
+  :root {
+    --gutter: 28px;
+  }
+
+  .reviews {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  /* Планшет: 3 карточки в ряд */
+  .catalog {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+  }
+
+  .card__name {
+    font-size: 23px;
+  }
+
+  .steps {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .step {
+    grid-template-columns: 1fr;
+    align-content: start;
+    gap: 10px;
+    padding: 24px;
+  }
+
+  .step__icon {
+    grid-row: auto;
+  }
+
+  .footer__list {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* ===== Компьютеры ===== */
+@media (min-width: 1000px) {
+  html {
+    scroll-padding-top: 84px;
+  }
+
+  .header__inner {
+    flex-wrap: nowrap;
+    padding-top: 12px;
+    padding-bottom: 12px;
+  }
+
+  .logo {
+    font-size: 32px;
+  }
+
+  .nav {
+    order: 0;
+    width: auto;
+    margin: 0 auto;
+    gap: 8px;
+  }
+
+  .nav a {
+    padding: 8px 14px;
+    font-size: 15px;
+  }
+
+  .footer__list {
+    grid-template-columns: repeat(4, auto);
+    justify-content: space-between;
+  }
+
+
+  /* Фильтр по цене — обычная строка над карточками */
+  .filter-btn,
+  .price-panel__grip,
+  .price-panel__close,
+  #filter-apply,
+  .overlay--filters {
+    display: none !important;
+  }
+
+  .toolbar {
+    margin: 0 0 14px;
+  }
+
+  /* Поля «от — до» и ползунок в одну строку */
+  .price {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    align-items: center;
+    gap: 28px;
+  }
+
+  /* Панель фильтров — строка над карточками.
+     Повод здесь не дублируем: плашки по поводу видны прямо над ней */
+  .price-panel {
+    position: static;
+    display: grid;
+    grid-template-columns: auto minmax(240px, 1fr) auto auto;
+    grid-template-areas:
+      "head price sort reset"
+      "note note note note";
+    align-items: center;
+    gap: 4px 20px;
+    margin-bottom: 26px;
+    padding: 14px 18px;
+    background: var(--paper);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: none;
+    transform: none;
+    visibility: visible;
+    transition: none;
+  }
+
+  .filter-group--tags {
+    display: none;
+  }
+
+  .price-panel__head {
+    grid-area: head;
+    margin: 0;
+  }
+
+  .price {
+    grid-area: price;
+  }
+
+  .price-panel__note {
+    grid-area: note;
+    margin: 2px 0 0;
+  }
+
+  .filter-group--sort {
+    grid-area: sort;
+    margin: 0;
+  }
+
+  .filter-group--sort .filter-group__title {
+    display: none;
+  }
+
+  .price-panel__foot {
+    grid-area: reset;
+    display: block;
+    margin: 0;
+  }
+
+  .price-panel__title {
+    font-size: 20px;
+  }
+
+  .range {
+    margin-top: 0;
+  }
+
+  /* На компьютере липкой кнопки нет — «Заказать» есть на каждой карточке */
+  .order-bar {
+    display: none !important;
+  }
+
+  body {
+    padding-bottom: 0;
+  }
+
+  .hero {
+    padding: 56px 0 16px;
+  }
+
+  .hero__lead {
+    font-size: 19px;
+  }
+
+  .section {
+    padding: 88px 0 96px;
+  }
+
+  .section__head {
+    margin-bottom: 30px;
+  }
+
+  .reviews {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 28px;
+  }
+
+  /* Компьютер: 4 карточки в ряд, вес — в одну строку */
+  .catalog {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 20px;
+  }
+
+  .card .media {
+    margin: 8px 8px 0;
+  }
+
+  .card__body {
+    padding: 14px 16px 16px;
+  }
+
+  .card__name {
+    font-size: 24px;
+  }
+
+  .weights {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .chips {
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+}
+
+/* =====================================================================
+   ДОПОЛНЕНИЯ: первый экран, тёмный блок, «Мой заказ», страница торта
+   ===================================================================== */
+
+/* Страховка от горизонтальной прокрутки на телефоне */
+main {
+  overflow-x: clip;
+}
+
+/* Кнопка и короткие факты в одну строку под текстом */
+.hero__row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 20px 28px;
+}
+
+.hero__facts {
+  display: flex;
+  gap: 22px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.hero__facts li {
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--choco-soft);
+}
+
+.hero__facts b {
+  display: block;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--choco);
+}
+
+/* ----- Карточка при фильтре «оплывает» вниз ----- */
+.card {
+  transform-origin: top center;
+  transition: transform 0.5s var(--smooth), box-shadow 0.5s var(--smooth),
+    opacity 0.35s var(--smooth), filter 0.35s var(--smooth);
+}
+
+.card.is-out {
+  opacity: 0;
+}
+
+/* ----- Шоколадный блок «Как заказать» ----- */
+.section--choco {
+  position: relative;
+  z-index: 1;
+  background: var(--plum);
+  color: var(--cream);
+}
+
+.section--choco .eyebrow {
+  color: var(--powder);
+}
+
+.section--choco .step {
+  background: rgba(255, 253, 249, 0.06);
+  border: 1px solid rgba(255, 253, 249, 0.1);
+  box-shadow: none;
+  backdrop-filter: blur(4px);
+}
+
+.section--choco .step::after {
+  color: rgba(243, 211, 217, 0.22);
+}
+
+.section--choco .step__icon {
+  background: rgba(243, 211, 217, 0.14);
+}
+
+.section--choco .step__icon svg {
+  stroke: var(--powder);
+}
+
+.section--choco .step__text {
+  color: #d8c8e2;
+}
+
+/* ----- Страница торта ----- */
+.pd {
+  position: fixed;
+  inset: 0;
+  z-index: 125;
+  display: flex;
+  flex-direction: column;
+  background: var(--cream);
+  animation: pd-in 0.4s var(--smooth);
+}
+
+@keyframes pd-in {
+  from { opacity: 0; transform: translateY(24px); }
+}
+
+/* Верхняя строка с кнопкой «назад» */
+.pd__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: calc(10px + env(safe-area-inset-top)) var(--gutter) 10px;
+  border-bottom: 1px solid var(--line);
+  background: rgba(246, 242, 234, 0.92);
+  backdrop-filter: blur(10px);
+}
+
+.pd__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
+  padding: 8px 14px 8px 8px;
+  border: none;
+  border-radius: 10px;
+  background: none;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.25s;
+}
+
+.pd__back:hover {
+  background: var(--cream-deep);
+}
+
+.pd__back svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.pd__crumb {
+  overflow: hidden;
+  font-size: 14px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--choco-soft);
+}
+
+.pd__scroll {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: calc(32px + env(safe-area-inset-bottom));
+}
+
+.pd__wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr); /* колонка не растягивается под длинный текст */
+  gap: 22px;
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 20px var(--gutter) 0;
+}
+
+.pd__media,
+.pd__buy {
+  min-width: 0;
+}
+
+.pd__wrap--tabs {
+  padding-top: 36px;
+}
+
+/* Фото торта */
+.pd__photo {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+}
+
+.pd__photo .media {
+  aspect-ratio: 1 / 1;
+  margin: 0;
+  border-radius: 18px;
+}
+
+.pd__thumbs {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pd__thumb {
+  flex: none;
+  width: 64px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+}
+
+.pd__thumb .media {
+  width: 64px;
+  height: 64px;
+  margin: 0;
+  border-radius: 12px;
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+  transition: outline-color 0.25s;
+}
+
+.pd__thumb[aria-current="true"] .media {
+  outline-color: var(--rose);
+}
+
+.pd__thumb .media__ph svg {
+  width: 22px;
+  height: 22px;
+}
+
+.pd__thumb .media__ph small {
+  display: none;
+}
+
+/* Правая колонка: название, цена, кнопки */
+.pd__name {
+  margin: 0 0 6px;
+  font-family: var(--display);
+  font-size: clamp(28px, 7vw, 40px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -0.04em;
+}
+
+.pd__sub {
+  margin: 0 0 20px;
+  color: var(--choco-soft);
+}
+
+.pd__weights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 18px;
+}
+
+.pd__weights .weight {
+  min-width: 78px;
+  padding: 10px 14px;
+}
+
+.pd__price {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.pd__price-value {
+  font-family: var(--display);
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.pd__price-note {
+  font-size: 14px;
+  color: var(--choco-soft);
+}
+
+.pd__actions {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.pd__notes {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 22px;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+
+.pd__notes li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.pd__notes svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: var(--rose);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Короткие характеристики: «Форма — круглый» */
+.pd__facts {
+  display: grid;
+  gap: 0;
+  margin: 0;
+  padding: 4px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--paper);
+  font-size: 14px;
+}
+
+.pd__facts div {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.pd__facts div:last-child {
+  border-bottom: none;
+}
+
+.pd__facts dt {
+  flex: none;
+  color: var(--choco-soft);
+}
+
+.pd__facts dd {
+  margin: 0;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* Вкладки */
+.pd__tabs {
+  display: flex;
+  gap: 6px;
+  margin: 0 calc(var(--gutter) * -1) 20px;
+  padding: 0 var(--gutter);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.pd__tab {
+  flex: none;
+  min-height: 44px;
+  padding: 10px 20px;
+  border: none;
+  border-radius: 10px;
+  background: var(--cream-deep);
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--choco-soft);
+  cursor: pointer;
+  transition: background-color 0.25s, color 0.25s;
+}
+
+.pd__tab:hover {
+  color: var(--choco);
+}
+
+.pd__tab[aria-selected="true"] {
+  background: var(--rose);
+  color: #fff;
+}
+
+.pd__panel {
+  max-width: 760px;
+  animation: melt-in 0.45s var(--smooth);
+}
+
+.pd__panel h3 {
+  margin: 0 0 14px;
+  font-family: var(--display);
+  font-size: clamp(24px, 5vw, 32px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+}
+
+.pd__panel p {
+  margin: 0 0 14px;
+  line-height: 1.6;
+  color: #4a3a32;
+}
+
+.pd__panel p:last-child {
+  margin-bottom: 0;
+}
+
+.pd__panel p strong {
+  color: var(--choco);
+}
+
+/* Отзывы во вкладке — пока заглушка */
+.pd__panel .review {
+  margin-top: 4px;
+}
+
+@media (min-width: 900px) {
+  .pd__wrap {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 420px);
+    gap: 40px;
+    padding-top: 28px;
+  }
+
+  .pd__wrap--tabs {
+    display: block;
+    padding-top: 48px;
+  }
+
+  .pd__thumbs {
+    gap: 10px;
+  }
+
+  .pd__thumb,
+  .pd__thumb .media {
+    width: 84px;
+  }
+
+  .pd__thumb .media {
+    height: 84px;
+  }
+
+  .pd__actions {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .pd__tabs {
+    margin-inline: 0;
+    padding-inline: 0;
+  }
+}
+
+/* ===== Если анимации отключены в системе — без них ===== */
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* Секции видны сразу, без появления */
+  .js .section {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ===================== Шапка, шаги, карточки (спокойный вид) ===================== */
+
+/* Логотип: картинка или текст в цвете логотипа */
+.logo {
+  color: var(--plum);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.logo img {
+  display: block;
+  height: 52px;
+  width: auto;
+}
+
+/* Телефон: логотип ниже, чтобы рядом поместились «Позвонить» и «WhatsApp» */
+@media (max-width: 599px) {
+  .logo img {
+    height: 36px;
+  }
+}
+
+/* «Позвонить» и «WhatsApp» справа от логотипа */
+.header__contacts {
+  display: flex;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.hbtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--plum);
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.hbtn svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hbtn--wa {
+  border-color: var(--rose);
+  background: var(--rose);
+  color: #fff;
+}
+
+@media (hover: hover) {
+  .hbtn:hover {
+    border-color: var(--plum);
+  }
+
+  .hbtn--wa:hover {
+    border-color: var(--rose-dark);
+    background: var(--rose-dark);
+  }
+}
+
+/* Узкий телефон: прячем значки, чтобы логотип и обе кнопки влезли в строку */
+@media (max-width: 389px) {
+  .logo {
+    font-size: 24px;
+  }
+
+  .hbtn {
+    padding: 0 10px;
+    font-size: 13px;
+  }
+
+  .hbtn svg {
+    display: none;
+  }
+}
+
+@media (min-width: 1000px) {
+  /* Компьютер: логотип — меню — «Позвонить» и «WhatsApp» */
+  .nav {
+    order: 1;
+  }
+
+  .header__contacts {
+    order: 2;
+    margin-left: 0;
+  }
+
+  .hbtn {
+    padding: 0 16px;
+    font-size: 15px;
+  }
+}
+
+/* Как заказать: номер прямо в заголовке шага — «1. Выберите торт» */
+.step {
+  grid-template-columns: 1fr;
+  gap: 6px;
+}
+
+.step::after {
+  content: none;
+}
+
+.step__title::before {
+  content: counter(step) ". ";
+  color: var(--rose-light);
+}
+
+.step__text {
+  padding-right: 0;
+}
+
+/* Заголовки секций — в цвете логотипа */
+.section__title {
+  color: var(--plum);
+}
+
+.section--choco .section__title {
+  color: #fff;
+}
+
+/* Карточка: фото до краёв, название в одну строку */
+.card .media {
+  margin: 0;
+  border-radius: 0;
+}
+
+.card__name {
+  overflow: hidden;
+  font-size: 17px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+@media (min-width: 640px) {
+  .card__name {
+    font-size: 20px;
+  }
+}
+
+/* ===================== Удобно нажимать пальцем ===================== */
+/* Всё, что нажимают, — не меньше 44 px (рекомендация Apple и Google) */
+.nav a,
+.chip,
+.weight,
+.weight-pick select {
+  min-height: 44px;
+}
+
+.icon-btn {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* Телефон и почта в подвале: зона нажатия выше самого текста */
+.footer__list a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+/* ===================== Живые фоны секций ===================== */
+/* Секции чередуются по цвету, чтобы страница не сливалась в один фон */
+#cakes {
+  background: #fff0f5; /* каталог — светло-розовый */
+}
+
+#reviews {
+  background: #f8f0ff; /* отзывы — нежно-сиреневый */
+}
+
+/* Подвал — тёмно-розовый, текст белый */
+.footer {
+  background: #c0006a;
+  color: #fff;
+}
+
+.footer__list span {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.footer__list a:hover {
+  color: #fff;
+  text-decoration: underline;
+}
+
+/* Кнопка WhatsApp в подвале — белая, чтобы не спорить с розовым фоном */
+.footer .btn--wa {
+  background: #fff;
+  color: #c0006a;
+}
+
+/* ===================== Карточки тортов ===================== */
+.card {
+  background: white;
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  overflow: hidden;
+}
+
+/* «Заказать» — на карточке и на странице торта */
+.card [data-order],
+#pd-add {
+  background: linear-gradient(135deg, #e0006a, #9b00c9);
+}
+
+@media (hover: hover) {
+  .card [data-order]:hover,
+  #pd-add:hover {
+    background: linear-gradient(135deg, #e0006a, #9b00c9);
+    filter: brightness(0.92);
+  }
+}
+
+/* ===================== Как заказать ===================== */
+/* Секция белая, шаги — на розоватой подложке, каждый в белой карточке */
+.section--choco {
+  background: #ffffff;
+  color: var(--choco);
+}
+
+.section--choco .section__title {
+  color: var(--plum);
+}
+
+.steps {
+  padding: 16px;
+  background: #fff0f5;
+  border-radius: 20px;
+}
+
+.section--choco .step {
+  background: #ffffff;
+  border: none;
+  border-radius: 16px;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  backdrop-filter: none;
+}
+
+.section--choco .step__title {
+  color: var(--choco);
+}
+
+.section--choco .step__title::before {
+  color: var(--rose);
+}
+
+.section--choco .step__text {
+  color: var(--choco-soft);
+}
+
+@media (min-width: 640px) {
+  .steps {
+    padding: 24px;
+  }
+}
+
+/* ===================== Заказ: липкая кнопка и окно ===================== */
+
+/* Телефон: внизу всегда «Заказать [торт]» — последний выбранный */
+.order-bar {
+  position: fixed;
+  right: 10px;
+  bottom: calc(10px + env(safe-area-inset-bottom));
+  left: 10px;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 56px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #e0006a, #9b00c9);
+  color: #fff;
+  font-family: var(--text);
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  transition: transform 0.3s var(--smooth);
+}
+
+.order-bar span {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.order-bar:active {
+  transform: scale(0.98);
+}
+
+/* Торты на экране — кнопка уезжает вниз и не перехватывает нажатия */
+.order-bar.is-hidden {
+  transform: translateY(calc(100% + 20px));
+  pointer-events: none;
+}
+
+/* Окно заказа: поверх страницы торта, форма слева */
+.order {
+  z-index: 140;
+}
+
+.order__card {
+  width: min(420px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  padding: 28px 20px 20px;
+  border-radius: 20px;
+  text-align: left;
+}
+
+.order .modal__title {
+  margin-bottom: 14px;
+  padding-right: 40px;
+  font-size: 24px;
+  color: var(--plum);
+}
+
+/* Торт и вес — просто текст, не поле */
+.order__cake {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.order__price {
+  margin: 4px 0 0;
+  font-family: var(--display);
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  color: var(--rose);
+}
+
+.order__prepay {
+  margin: 2px 0 0;
+  font-size: 14px;
+  color: var(--choco-soft);
+}
+
+.order__form {
+  margin-top: 18px;
+}
+
+.order__form .form-error {
+  margin: 0;
+}
+
+.order__send {
+  width: 100%;
+  background: linear-gradient(135deg, #e0006a, #9b00c9);
+  color: #fff;
+}
+
+/* ===================== Воздух: отступы и простые карточки ===================== */
+
+/* Между секциями — 80 px */
+.section {
+  padding: 80px 0;
+}
+
+/* Карточка: фото — 55% высоты, ниже название, короткое описание, цена и «Заказать».
+   Высота фото подобрана под нижнюю часть карточки: 256 / (256 + 209) ≈ 55% на телефоне,
+   234 / (234 + 191) ≈ 55% на планшете и компьютере */
+.card .media {
+  aspect-ratio: auto;
+  height: 256px;
+}
+
+@media (min-width: 640px) {
+  .card .media {
+    height: 234px;
+  }
+}
+
+.card__body {
+  padding: 16px;
+}
+
+.card__name {
+  margin-bottom: 6px;
+  font-size: 19px;
+}
+
+/* Описание: мелко, серым, не больше двух строк */
+.card__desc {
+  flex: none;
+  display: -webkit-box;
+  margin: 0 0 14px;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.4;
+  color: #888;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.card__cost {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 8px;
+  margin: 0;
+}
+
+.card__price {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.card__per {
+  font-size: 13px;
+  color: #888;
+}
+
+@media (min-width: 640px) {
+  .card__name {
+    font-size: 22px;
+  }
+}
+
+/* Окно заказа: фото сверху, вес плашками в одну строку */
+.order__photo .media {
+  aspect-ratio: 16 / 10;
+  margin: 0 0 14px;
+  border-radius: 14px;
+}
+
+.order__weights {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin: 4px 0 12px;
+}
+
+.order__weights .weight--fixed {
+  grid-column: 1 / -1;
+}
+
+.order .modal__title {
+  margin-bottom: 10px;
+}
+
+/* Крестик в окне заказа лежит на фото — белый кружок, чтобы его было видно */
+.order .modal__close {
+  z-index: 1;
+  top: 12px;
+  right: 12px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* ===================== Визуальные эффекты ===================== */
+
+/* --- Первый экран: размытое фото торта как фон, поверх — текст и плавающий торт --- */
+.hero {
+  position: relative;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  /* Всё окно под шапкой: шапка + первый экран = ровно высота окна.
+     --header-h задаёт script.js; svh — видимая высота на телефоне без панелей браузера */
+  min-height: calc(100vh - var(--header-h, 0px));
+  min-height: calc(100svh - var(--header-h, 0px));
+  padding: 48px 0;
+  background: #1b1420;
+  color: #fff;
+}
+
+/* Фон: мягкий тёмный градиент в цветах сайта (без фото) */
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 75% 30%, rgba(200, 21, 92, 0.55), transparent 60%),
+    radial-gradient(circle at 20% 80%, rgba(155, 0, 201, 0.35), transparent 55%),
+    var(--choco);
+}
+
+.hero__inner {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  gap: 28px;
+  align-items: center;
+  width: 100%;
+}
+
+.hero__title {
+  max-width: 14em;
+  margin-bottom: 14px;
+  font-size: clamp(2rem, 5vw, 4rem);
+  color: #fff;
+  text-shadow: 0 2px 18px rgba(0, 0, 0, 0.45);
+}
+
+.hero__lead {
+  margin-bottom: 26px;
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.hero__facts li {
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.hero__facts b {
+  color: #fff;
+}
+
+/* Плавающий торт: круглое фото покачивается вверх-вниз и чуть поворачивается */
+.hero__cake {
+  position: relative;
+  order: -1; /* на телефоне торт над заголовком */
+  width: min(58vw, 240px);
+  margin: 0 auto;
+}
+
+.hero__cake-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 50%;
+  animation: cake-float 3s ease-in-out infinite alternate;
+}
+
+/* Заглушка вместо фото: светлый круг со значком торта */
+.hero__cake-ph {
+  display: grid;
+  place-items: center;
+  background: var(--powder);
+}
+
+.hero__cake-ph svg {
+  width: 46%;
+  height: 46%;
+  fill: none;
+  stroke: var(--rose);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Тень под тортом: торт поднимается — тень шире и бледнее */
+.hero__cake-shadow {
+  display: block;
+  width: 70%;
+  height: 22px;
+  margin: 14px auto 0;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0));
+  animation: cake-shadow 3s ease-in-out infinite alternate;
+}
+
+@keyframes cake-float {
+  from { transform: translateY(0) rotate(-2deg); }
+  to { transform: translateY(-12px) rotate(2deg); }
+}
+
+@keyframes cake-shadow {
+  from { transform: scale(1); opacity: 0.9; }
+  to { transform: scale(1.18); opacity: 0.55; }
+}
+
+/* Компьютер: текст слева, торт справа */
+@media (min-width: 1000px) {
+  .hero__inner {
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 48px;
+  }
+
+  .hero__cake {
+    order: 0;
+    width: min(100%, 440px);
+  }
+
+  .hero__cake-shadow {
+    height: 34px;
+    margin-top: 22px;
+  }
+}
+
+/* --- Секции появляются при прокрутке (класс is-visible ставит script.js) --- */
+.js .section {
+  opacity: 0;
+  transform: translateY(40px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+
+/* transform: none, а не translateY(0): иначе на телефоне сломается выезжающая панель фильтров */
+.js .section.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+/* --- 3D-наклон карточки за курсором (угол задаёт script.js) --- */
+.card {
+  transform-origin: center;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  /* Пока курсор на карточке — она быстро следует за мышью; уходит — плавно возвращается */
+  .card:hover {
+    transition: transform 0.12s ease-out, box-shadow 0.5s var(--smooth), opacity 0.35s var(--smooth);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .js .section {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Примерная высота шапки до того, как script.js измерит точную, — чтобы первый экран не прыгал при загрузке */
+:root {
+  --header-h: 109px;
+}
+
+@media (min-width: 1000px) {
+  :root {
+    --header-h: 77px;
+  }
+}
+
+/* ===================== Корзина ===================== */
+
+/* Значок корзины в шапке — рядом с «Позвонить» и WhatsApp */
+.hbtn--cart {
+  position: relative;
+  border-color: var(--plum);
+  background: var(--plum);
+  color: #fff;
+}
+
+.hbtn__badge {
+  display: grid;
+  place-items: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--plum);
+}
+
+@media (hover: hover) {
+  .hbtn--cart:hover {
+    border-color: var(--rose);
+    background: var(--rose);
+  }
+}
+
+/* Корзина пополнилась — значок подпрыгивает */
+.hbtn--cart.is-pop {
+  animation: cart-pop 0.45s var(--spring);
+}
+
+@keyframes cart-pop {
+  40% { transform: scale(1.14); }
+}
+
+/* Кнопка «В корзину» в окне заказа */
+.order__cart {
+  width: 100%;
+  margin-top: 8px;
+}
+
+.order__hint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--choco-soft);
+}
+
+/* Список тортов в корзине */
+.cart__list {
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+}
+
+.cart__item {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.cart__photo .media {
+  aspect-ratio: 1 / 1;
+  height: 56px;
+  margin: 0;
+  border-radius: 12px;
+}
+
+.cart__name {
+  display: block;
+  font-size: 16px;
+  line-height: 1.2;
+}
+
+.cart__meta {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  color: #888;
+}
+
+.cart__qty {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
+.cart__qty button {
+  width: 40px;
+  height: 40px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.cart__qty output {
+  min-width: 24px;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: center;
+}
+
+.cart__sum {
+  font-size: 15px;
+  white-space: nowrap;
+}
+
+/* «Очистить корзину» — неяркая кнопка под основной */
+.cart__clear {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin-top: 8px;
+  padding: 10px;
+  border: none;
+  border-radius: 12px;
+  background: none;
+  font-family: var(--text);
+  font-size: 14px;
+  color: var(--choco-soft);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .cart__clear:hover {
+    color: var(--rose);
+  }
+}
+
+/* Узкий телефон: в шапке у корзины только значок и число */
+@media (max-width: 389px) {
+  .hbtn--cart #cart-btn-text {
+    display: none;
+  }
+
+  .hbtn--cart svg {
+    display: block;
+  }
+}
+
+/* ===================== Калькулятор порций в окне заказа ===================== */
+.guests {
+  margin: 4px 0 10px;
+}
+
+.guests__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.guests__label {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.guests__input {
+  width: 84px;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--paper);
+  font-family: var(--text);
+  font-size: 16px; /* 16px — чтобы iPhone не увеличивал страницу */
+  font-weight: 600;
+  text-align: center;
+}
+
+.guests__input:focus {
+  outline: none;
+  border-color: var(--rose-light);
+  box-shadow: 0 0 0 4px rgba(200, 21, 92, 0.18);
+}
+
+.guests__hint {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: #888;
+}
+
+/* ===================== Оценки на карточке ===================== */
+.card__rate {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 0 10px;
+}
+
+.rate-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--paper);
+  font-family: var(--text);
+  font-size: 13px;
+  color: var(--choco);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.2s, background-color 0.2s;
+}
+
+.rate-chip b {
+  font-weight: 700;
+}
+
+@media (hover: hover) {
+  .rate-chip:hover {
+    border-color: #e0006a;
+    background: #fff0f5;
+  }
+}
+
+.rate-chip:active {
+  transform: scale(0.96);
+}
+
+/* ===================== Окно «Оцените торт» ===================== */
+.rate__cake {
+  margin: 0 0 14px;
+  font-size: 16px;
+  font-weight: 600;
+  color: #888;
+}
+
+/* Десять кружков 1–10 */
+.rate__dots {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.rate-dot {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1 / 1;
+  min-height: 44px;
+  padding: 0;
+  border: 1.5px solid var(--line);
+  border-radius: 50%;
+  background: var(--paper);
+  font-family: var(--text);
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--choco);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 0.2s, border-color 0.2s, color 0.2s, transform 0.2s;
+}
+
+@media (hover: hover) {
+  .rate-dot:hover {
+    border-color: #e0006a;
+    background: #fff0f5;
+    color: #e0006a;
+  }
+}
+
+.rate-dot:active {
+  transform: scale(0.92);
+}
+
+/* Выбранная оценка остаётся закрашенной */
+.rate-dot[aria-checked="true"] {
+  border-color: #e0006a;
+  background: #e0006a;
+  color: #fff;
+}
+
+.rate-dot:focus-visible {
+  outline: 2px solid var(--plum);
+  outline-offset: 2px;
+}
+
+/* Последние комментарии */
+.rate__comments {
+  margin-bottom: 4px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  background: #fff0f5;
+}
+
+.rate__comments-title {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--plum);
+}
+
+.rate__comments-list {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rate__comment-head {
+  display: block;
+  font-size: 13px;
+}
+
+.rate__comment-text {
+  display: block;
+  margin-top: 2px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--choco-soft);
+}
+
+.rate__note {
+  margin: 10px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #aaa;
+}
+
+/* «Спасибо за оценку!» вместо формы */
+.rate__thanks {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 28px 0 12px;
+  text-align: center;
+  animation: thanks-in 0.45s var(--spring);
+}
+
+.rate__thanks b {
+  font-family: var(--display);
+  font-size: 22px;
+  color: var(--plum);
+}
+
+.rate__check {
+  font-size: 46px;
+  line-height: 1;
+}
+
+@keyframes thanks-in {
+  from { opacity: 0; transform: scale(0.8); }
+}
+
+/* ===================== Полёт торта в шапку ===================== */
+/* Летит поверх всего, включая окно заказа, и не мешает нажатиям */
+.cake-flyer {
+  position: fixed;
+  z-index: 300;
+  width: 80px;
+  height: 80px;
+  pointer-events: none;
+  will-change: transform;
+}
+
+.cake-flyer img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+  will-change: transform;
+}
+
+/* Окно заказа мягко уходит после «В корзину»: гаснет и чуть опускается */
+.modal.is-leaving {
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.28s ease;
+}
+
+.modal.is-leaving .modal__card {
+  transform: translateY(16px) scale(0.97);
+  transition: transform 0.28s ease;
+}
+
+/* ===================== Контакты: часы работы и мессенджеры ===================== */
+.hours {
+  display: block;
+  font-weight: 600;
+}
+
+/* «Сейчас работаем» — зелёная точка, «Откроемся…» — серая */
+.open-now {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: 4px;
+  font-size: 14px;
+  font-style: normal;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.open-now__dot {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #b9b3bb;
+}
+
+/* Текст отметки — обычный, а не мелкая заглавная подпись, как «Телефон» и «Почта» */
+.footer__list .open-now span {
+  display: inline;
+  font-size: inherit;
+  letter-spacing: normal;
+  text-transform: none;
+  color: inherit;
+}
+
+.open-now.is-open {
+  color: #fff;
+}
+
+.open-now.is-open .open-now__dot {
+  background: #2fd27a;
+  box-shadow: 0 0 0 3px rgba(47, 210, 122, 0.3);
+}
+
+/* WhatsApp и Telegram рядом; на узком телефоне — друг под другом */
+.footer__messengers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 26px;
+}
+
+.footer__messengers .btn--wa {
+  margin-top: 0;
+}
+
+.footer .btn--tg {
+  background: #fff;
+  color: #229ed9; /* фирменный голубой Telegram */
+}
+
+/* ===================== Каталог на телефоне: компактнее и 2 / 3 / 4 в ряд ===================== */
+
+/* Переключатель колонок справа от заголовка «Торты» */
+.section__head--catalog {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cols-pick {
+  display: flex;
+  gap: 4px;
+}
+
+.cols-pick button {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  color: #b3a7b5;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color 0.2s, background-color 0.2s, color 0.2s;
+}
+
+.cols-pick button[aria-checked="true"] {
+  border-color: #e0006a;
+  background: #fff0f5;
+  color: #e0006a;
+}
+
+.cols-pick svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+}
+
+/* На планшете и компьютере переключатель не нужен */
+@media (min-width: 640px) {
+  .cols-pick {
+    display: none;
+  }
+}
+
+@media (max-width: 639px) {
+  /* Компактнее: название, описание и оценка ближе друг к другу */
+  .card__name {
+    margin-bottom: 4px;
+  }
+
+  .card__desc {
+    margin-bottom: 8px;
+  }
+
+  .card__rate {
+    margin-bottom: 6px;
+  }
+
+  /* 3 и 4 в ряд */
+  .catalog.cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .catalog.cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 6px;
+  }
+
+  /* В узкой карточке — только главное: фото, название, цена, «Заказать».
+     Описание, оценка и вес — на странице торта */
+  .catalog.cols-3 .card,
+  .catalog.cols-4 .card {
+    border-radius: 12px;
+  }
+
+  .catalog.cols-3 .card .media,
+  .catalog.cols-4 .card .media {
+    height: auto;
+    aspect-ratio: 1 / 1;
+  }
+
+  .catalog.cols-3 .card__desc,
+  .catalog.cols-4 .card__desc,
+  .catalog.cols-3 .card__rate,
+  .catalog.cols-4 .card__rate,
+  .catalog.cols-3 .card__per,
+  .catalog.cols-4 .card__per,
+  .catalog.cols-3 .zoom-hint,
+  .catalog.cols-4 .zoom-hint {
+    display: none;
+  }
+
+  .catalog.cols-3 .card__body {
+    padding: 8px;
+  }
+
+  .catalog.cols-4 .card__body {
+    padding: 6px;
+  }
+
+  .catalog.cols-3 .card__name {
+    margin-bottom: 4px;
+    font-size: 14px;
+  }
+
+  .catalog.cols-4 .card__name {
+    margin-bottom: 2px;
+    font-size: 12px;
+  }
+
+  .catalog.cols-3 .card__foot,
+  .catalog.cols-4 .card__foot {
+    gap: 6px;
+  }
+
+  .catalog.cols-3 .card__price {
+    font-size: 16px;
+  }
+
+  .catalog.cols-4 .card__price {
+    font-size: 13px;
+  }
+
+  .catalog.cols-3 .card__foot .btn {
+    padding: 8px 4px;
+    font-size: 12px;
+  }
+
+  .catalog.cols-4 .card__foot .btn {
+    padding: 6px 2px;
+    font-size: 11px;
+  }
+}
+
+/* Адрес в подвале — обычный текст, без курсива по умолчанию у <address> */
+.footer__address {
+  font-style: normal;
+}
+
+/* «Сб–Вс: выходной» — второй строкой, чуть тише */
+.hours--off {
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+/* ===================== Эффекты для телефонов ===================== */
+
+/* Параллакс: фон первого экрана сдвигается на --hero-shift (его задаёт script.js).
+   Сверху слой выше блока с запасом — при сдвиге вниз край не открывается */
+@media (max-width: 768px) {
+  .hero::before {
+    top: -40%;
+    bottom: -40px;
+    transform: translate3d(0, var(--hero-shift, 0px), 0);
+    will-change: transform;
+  }
+}
+
+/* Карточка ждёт своей очереди: ниже, прозрачная и наклонена назад */
+.card.is-pending {
+  opacity: 0;
+  transform: perspective(800px) translateY(24px) rotateX(6deg);
+}
+
+/* Вплывает на место */
+.card.is-arriving {
+  transition: opacity 0.5s ease-out, transform 0.5s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card.is-pending {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ===================== Вращение торта на 360° ===================== */
+
+/* Слой вращения поверх фото. pan-y: вертикальный свайп листает страницу,
+   горизонтальный — крутит торт */
+.spin {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  overflow: hidden;
+  border-radius: inherit;
+  touch-action: pan-y;
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.spin.is-dragging {
+  cursor: grabbing;
+}
+
+.spin:focus-visible {
+  outline: 3px solid #e0006a;
+  outline-offset: -3px;
+}
+
+.spin__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  pointer-events: none;
+  -webkit-user-drag: none;
+}
+
+/* Пока первый кадр не пришёл — видно обычное фото под слоем */
+.spin__img:not([src]) {
+  visibility: hidden;
+}
+
+.spin__hint {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: opacity 0.3s;
+}
+
+/* На узкой карточке — помельче, чтобы влезло */
+.card .spin__hint {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.spin__hint.is-gone {
+  opacity: 0;
+}
+
+.spin__load {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.spin__load[hidden] {
+  display: none;
+}
+
+/* Надпись «6 фото» остаётся поверх вращения */
+.media.has-spin ~ .zoom-hint {
+  z-index: 2;
+}
+
+/* «Пример 360°» в углу */
+.spin__label {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #e0006a;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+/* Значок «360°» на фото карточки: видно, что торт можно покрутить */
+.spin-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  z-index: 2;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(224, 0, 106, 0.92);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+/* Маленькие карточки на телефоне — значок поменьше */
+@media (max-width: 639px) {
+  .catalog.cols-3 .spin-badge,
+  .catalog.cols-4 .spin-badge {
+    top: 5px;
+    left: 5px;
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+
+  .catalog.cols-4 .spin-badge {
+    top: 4px;
+    left: 4px;
+    padding: 2px 5px;
+    font-size: 9px;
+    letter-spacing: 0;
+  }
+
+  /* В 3–4 в ряд вращения на карточке нет — и подсказку не показываем */
+  .catalog.cols-3 .spin__hint,
+  .catalog.cols-4 .spin__hint {
+    display: none;
+  }
+}
+
+/* В галерее торт целиком, без обрезки */
+.lb__spin {
+  position: relative;
+}
+
+.lb__spin .spin__img {
+  object-fit: contain;
+}
+
+/* ===================== Пример 360°: 3D-модель в галерее ===================== */
+
+.lb__model {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 22px;
+  background: #fbf3ea; /* светлый кремовый */
+  color: #4a3550;
+}
+
+.lb__model-view {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+}
+
+.lb__model-view model-viewer {
+  display: block;
+  width: 100%;
+  height: 100%;
+  background: transparent;
+  --poster-color: transparent;
+  outline: none;
+}
+
+.lb__model-load {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #8a6f7d;
+  font-size: 14px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+.lb__model-load[hidden] {
+  display: none;
+}
+
+.lb__model-note {
+  margin: 0;
+  padding: 10px 14px 12px;
+  border-top: 1px solid rgba(74, 53, 80, 0.1);
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.lb__model-credit {
+  display: block;
+  margin-top: 3px;
+  color: #8a6f7d;
+  font-size: 11px;
+}
+
+.lb__model-credit[hidden] {
+  display: none;
+}
+
+.lb__model-credit a {
+  color: inherit;
+}
+
+/* Миниатюра слайда с моделью */
+.lb__thumb-3d {
+  display: grid;
+  place-items: center;
+  background: #fbf3ea;
+  color: #e0006a;
+  font-size: 13px;
+  font-weight: 800;
+}
