@@ -4,7 +4,18 @@
    и ключ иконки — из них собирается цветной плейсхолдер.
    flavors — только то, что следует из названия и описания:
    помощник строит по ним обоснование подбора и не должен врать.
+
+   Торт делается под заказ на нужный вес:
+   perKg     — цена за кг; нужна для расчёта, на сайте не показывается;
+   minWeight — минимальный вес; цена «от» на карточке = perKg × minWeight;
+   weights   — (необязательно) свой набор весов, если стандартный
+               1 · 1,5 · 2 · 2,5 · 3 · 4 кг не подходит (бенто, наборы).
    ============================================================ */
+
+/* ТЕЛЕФОН ВЛАДЕЛЬЦА — впишите сюда свой номер, например '+7 (999) 123-45-67'.
+   Он появится в шапке (кнопка «Позвонить») и в подвале.
+   Пока в номере есть «_», кнопка не звонит, а сообщает, что номер не указан. */
+const OWNER_PHONE = '+7 (___) ___-__-__';
 
 const CATEGORIES = [
   { id: 'all',        name: 'Все' },
@@ -31,7 +42,7 @@ const PRODUCTS = [
   {
     id: 'velvet', name: 'Красный бархат', cat: 'birthday', icon: 'cake',
     c1: '#f3b8c6', c2: '#d98098',
-    weight: 2.5, perKg: 2600, minWeight: 1.5, hit: true,
+    perKg: 2600, minWeight: 1.5, hit: true,
     desc: 'Классика с ярким срезом и контрастным светлым кремом — подходит почти под любой праздник.',
     flavors: ['сливки'],
     decor: 'Подтёки, акцент сверху',
@@ -40,7 +51,7 @@ const PRODUCTS = [
   {
     id: 'choco-caramel', name: 'Шоколад и карамель', cat: 'birthday', icon: 'cake',
     c1: '#d8b48c', c2: '#a8764a',
-    weight: 3, perKg: 2800, minWeight: 2,
+    perKg: 2800, minWeight: 2,
     desc: 'Насыщенный, плотный десерт для тех, кто любит торты погуще.',
     flavors: ['шоколад'],
     decor: 'Подтёки',
@@ -49,7 +60,7 @@ const PRODUCTS = [
   {
     id: 'pistachio', name: 'Фисташка и малина', cat: 'birthday', icon: 'slice',
     c1: '#d7e4a8', c2: '#9fba6a', hit: true,
-    weight: 2.5, perKg: 3200, minWeight: 1.5,
+    perKg: 3200, minWeight: 1.5,
     desc: 'Сдержанный, не приторный вкус с лёгкой кислинкой.',
     flavors: ['ягоды', 'не сладко'],
     decor: 'Велюровое покрытие',
@@ -58,7 +69,7 @@ const PRODUCTS = [
   {
     id: 'dino', name: 'Динозавры', cat: 'kids', icon: 'cake',
     c1: '#b6e3cd', c2: '#6ab795',
-    weight: 2, perKg: 2900, minWeight: 1.5,
+    perKg: 2900, minWeight: 1.5,
     desc: 'Торт с фигурками динозавров для детского праздника.',
     flavors: [],
     decor: 'Фигурки, «травяной» декор',
@@ -67,7 +78,7 @@ const PRODUCTS = [
   {
     id: 'rainbow', name: 'Радуга', cat: 'kids', icon: 'slice',
     c1: '#f8d59a', c2: '#e49fc3',
-    weight: 2.5, perKg: 2700, minWeight: 1.5,
+    perKg: 2700, minWeight: 1.5,
     desc: 'Разноцветные слои на срезе — эффектно в момент подачи.',
     flavors: [],
     decor: 'Радужные подтёки',
@@ -76,7 +87,7 @@ const PRODUCTS = [
   {
     id: 'bunny', name: 'Зайчик на облаке', cat: 'kids', icon: 'bento',
     c1: '#e2d6f5', c2: '#b39ee0',
-    weight: 1.5, perKg: 3000, minWeight: 1.2,
+    perKg: 3000, minWeight: 1.2,
     desc: 'Небольшой торт для самых маленьких именинников.',
     flavors: [],
     decor: 'Фигурка зайца, облака',
@@ -85,7 +96,7 @@ const PRODUCTS = [
   {
     id: 'ivory', name: 'Ivory, два яруса', cat: 'wedding', icon: 'tiered',
     c1: '#f6ead6', c2: '#dcc39a', hit: true,
-    weight: 6, perKg: 3400, minWeight: 4,
+    perKg: 3400, minWeight: 4,
     desc: 'Двухъярусный торт в спокойной светлой палитре, с ровными боками.',
     flavors: [],
     decor: 'Текстурное покрытие, цветочный декор',
@@ -94,7 +105,7 @@ const PRODUCTS = [
   {
     id: 'marble', name: 'Мраморный с золотом', cat: 'wedding', icon: 'tiered',
     c1: '#e8e5df', c2: '#b9b2a6',
-    weight: 8, perKg: 3600, minWeight: 5,
+    perKg: 3600, minWeight: 5,
     desc: 'Трёхъярусный торт с мраморным узором — для больших залов.',
     flavors: [],
     decor: 'Мраморный узор, золотые акценты',
@@ -103,7 +114,7 @@ const PRODUCTS = [
   {
     id: 'naked', name: 'Naked cake с ягодами', cat: 'wedding', icon: 'cake',
     c1: '#f4c9b0', c2: '#d79475',
-    weight: 4, perKg: 3100, minWeight: 3,
+    perKg: 3100, minWeight: 3,
     desc: 'Открытые бока и видимые слои — лёгкий стиль для выездной церемонии.',
     flavors: ['ягоды'],
     decor: 'Минимум покрытия',
@@ -112,7 +123,7 @@ const PRODUCTS = [
   {
     id: 'mango', name: 'Манго-маракуйя', cat: 'mousse', icon: 'slice',
     c1: '#fbd79a', c2: '#ef9f55', hit: true,
-    weight: 1.8, perKg: 3500, minWeight: 1.2,
+    perKg: 3500, minWeight: 1.2,
     desc: 'Муссовый торт с ярким кисло-сладким вкусом.',
     flavors: ['фрукты'],
     decor: 'Глянцевое покрытие',
@@ -121,7 +132,7 @@ const PRODUCTS = [
   {
     id: 'blackcurrant', name: 'Чёрная смородина', cat: 'mousse', icon: 'slice',
     c1: '#cbb6e8', c2: '#8767b8',
-    weight: 1.8, perKg: 3500, minWeight: 1.2,
+    perKg: 3500, minWeight: 1.2,
     desc: 'Муссовый торт с насыщенным ягодным вкусом.',
     flavors: ['ягоды'],
     decor: 'Велюр, зеркальная капля',
@@ -130,7 +141,7 @@ const PRODUCTS = [
   {
     id: 'ny-classic', name: 'Чизкейк Нью-Йорк', cat: 'cheesecake', icon: 'cheesecake',
     c1: '#f7e6c2', c2: '#d9b67e',
-    weight: 1.6, perKg: 2900, minWeight: 1.2,
+    perKg: 2900, minWeight: 1.2,
     desc: 'Плотный сливочный чизкейк в классическом стиле.',
     flavors: ['сливки'],
     decor: 'Классическая подача',
@@ -139,7 +150,7 @@ const PRODUCTS = [
   {
     id: 'basque', name: 'Басконский чизкейк', cat: 'cheesecake', icon: 'cheesecake',
     c1: '#e3bd93', c2: '#b87f4e',
-    weight: 1.4, perKg: 3000, minWeight: 1,
+    perKg: 3000, minWeight: 1,
     desc: 'Чизкейк с тёмной карамелизованной корочкой и мягким центром.',
     flavors: ['сливки'],
     decor: 'Без декора',
@@ -148,7 +159,7 @@ const PRODUCTS = [
   {
     id: 'bento-love', name: 'Бенто «записка»', cat: 'bento', icon: 'bento',
     c1: '#f6c2d4', c2: '#e38aa8',
-    weight: 0.5, perKg: 3600, minWeight: 0.4,
+    perKg: 3600, minWeight: 0.4, weights: [0.4, 0.5],
     desc: 'Маленький торт на 1–2 человека с надписью от руки.',
     flavors: [],
     decor: 'Надпись, коробка-бенто',
@@ -157,7 +168,7 @@ const PRODUCTS = [
   {
     id: 'bento-mono', name: 'Бенто моно-цвет', cat: 'bento', icon: 'bento',
     c1: '#cfe0f2', c2: '#8fb2d8',
-    weight: 0.5, perKg: 3400, minWeight: 0.4,
+    perKg: 3400, minWeight: 0.4, weights: [0.4, 0.5],
     desc: 'Однотонный бенто-торт в выбранном оттенке.',
     flavors: [],
     decor: 'Гладкое покрытие, один цвет',
@@ -166,7 +177,7 @@ const PRODUCTS = [
   {
     id: 'cupcakes-set', name: 'Набор капкейков, 9 шт', cat: 'cupcakes', icon: 'cupcake',
     c1: '#f9ccd8', c2: '#dd9ab4',
-    weight: 0.9, perKg: 3800, minWeight: 0.9,
+    perKg: 3800, minWeight: 0.9, weights: [0.9],          // набор — один вес
     desc: 'Девять капкейков трёх вкусов в коробке — альтернатива торту.',
     flavors: [],
     decor: 'Шапочки, топперы',
@@ -175,7 +186,7 @@ const PRODUCTS = [
   {
     id: 'cupcakes-kids', name: 'Капкейки детские, 12 шт', cat: 'cupcakes', icon: 'cupcake',
     c1: '#d4ecc0', c2: '#9ccb77',
-    weight: 1.2, perKg: 3500, minWeight: 1.2,
+    perKg: 3500, minWeight: 1.2, weights: [1.2],
     desc: 'Яркие капкейки с топперами для детского праздника.',
     flavors: [],
     decor: 'Цветная посыпка, топперы',

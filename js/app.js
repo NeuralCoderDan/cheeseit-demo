@@ -1,7 +1,7 @@
 /* ============================================================
    Логика демо-сайта: тема (с круговым раскрытием), вкладки категорий,
    фильтр по цене и сортировка (FLIP), сетка 2/3/4, 3D-наклон карточек,
-   модалка с калькулятором гостей.
+   модалка: вес кнопками, подсказка по гостям, «В корзину».
    ============================================================ */
 (function () {
   'use strict';
@@ -15,7 +15,32 @@
   const money = n => new Intl.NumberFormat('ru-RU').format(Math.round(n)) + ' ₽';
   const kg = n => (Math.round(n * 100) / 100).toLocaleString('ru-RU') + ' кг';
   const catName = id => (CATEGORIES.find(c => c.id === id) || {}).name || '';
-  const price = p => p.perKg * p.weight;
+  /* ── вес и цена: торт делается под заказ на нужный вес ──
+     Цена всегда считается от веса: perKg × вес. Фиксированной цены у торта нет. */
+  const PER_GUEST = 0.18;                                   // кг на человека — внутри, не показываем
+  const STEPS = [1, 1.5, 2, 2.5, 3, 4];
+  const BIG_STEPS = [3, 4, 5, 6, 8, 10];                   // для свадебных и многоярусных
+  function weightOptions(p) {
+    if (p.weights) return p.weights.slice();
+    const big = p.tiers >= 2 || p.minWeight >= 3;
+    const list = (big ? BIG_STEPS : STEPS).filter(w => w >= p.minWeight);
+    if (!list.length || list[0] > p.minWeight) list.unshift(p.minWeight);
+    return list.slice(0, 6);
+  }
+  const minW = p => weightOptions(p)[0];
+  const priceAt = (p, w) => Math.round(p.perKg * w);
+  const price = p => priceAt(p, minW(p));                  // цена «от» — за минимальный вес
+  const kgForGuests = g => Math.max(1, Number(g) || 1) * PER_GUEST;
+  /* вес под гостей: ближайший вес из кнопок торта, не меньше нужного;
+     если гостей больше, чем на самый большой вес, — округляем вверх до 0,5 кг */
+  function weightForGuests(p, g) {
+    const need = kgForGuests(g), opts = weightOptions(p);
+    const hit = opts.find(w => w >= need - 1e-9);
+    if (hit != null) return hit;
+    return p.weights ? opts[opts.length - 1] : Math.ceil(need * 2 - 1e-9) / 2;
+  }
+  const hasTiers = p => p.tiers >= 2 || p.cat === 'wedding';
+  const fromWord = p => weightOptions(p).length > 1 ? 'от\u00a0' : '';
 
   function plural(n, forms) {
     const a = Math.abs(n) % 100, b = a % 10;
@@ -166,21 +191,49 @@
     sortSel.value = f.sort;
     $('#catTitle').textContent = catalogTitle();
     updateScrollers();
+    if (typeof syncBar === 'function') syncBar();
   }
 
-  function update(scroll) {
+  /* 5.2 — при смене фильтра страница не прыгает: позиция прокрутки сохраняется.
+     Если карточек стало меньше, сетка временно держит высоту до низа экрана (min-height):
+     следующая секция не выезжает под прилипшую панель, панель остаётся на месте.
+     По мере прокрутки вверх лишняя высота уходит — за краем экрана, без рывка.
+     Если ни одной карточки не осталось в поле зрения — плавно подводим к началу результатов. */
+  let gridNatural = 0;
+  function update() {
+    const y = window.scrollY;
+    const inCatalog = bar.classList.contains('is-stuck');
     saveFilters();
     syncControls();
     render();
-    // фильтрация на месте: если каталог ушёл выше экрана — мягко подводим к его началу
-    if (scroll && $('#catalog').getBoundingClientRect().top < 0) scrollToCatalog();
+    grid.style.minHeight = '';
+    gridNatural = grid.offsetHeight;
+    const gridTop = grid.getBoundingClientRect().top + window.scrollY;     // в координатах документа
+    let hold = inCatalog ? y + window.innerHeight - gridTop : 0;
+    const deficit = y + window.innerHeight - document.documentElement.scrollHeight;
+    if (deficit > 0) hold = Math.max(hold, gridNatural + deficit);
+    if (hold > gridNatural) grid.style.minHeight = Math.ceil(hold) + 'px';
+    if (Math.abs(window.scrollY - y) > 0.5) window.scrollTo({ top: y, behavior: 'instant' });
+
+    if (inCatalog) {
+      const under = stickTop() + barH;                                    // низ прилипшей панели
+      let bottom = gridTop - y + gridNatural;
+      if (!emptyMsg.hidden) bottom += emptyMsg.offsetHeight;
+      if (bottom < under + 60) window.scrollTo({ top: Math.max(0, gridTop - under - 16), behavior: reduced() ? 'auto' : 'smooth' });
+    }
+    updateStick();
+  }
+  function relaxGrid() {
+    if (!grid.style.minHeight) return;
+    const want = Math.max(gridNatural, Math.ceil(window.innerHeight - grid.getBoundingClientRect().top));
+    if (want < grid.offsetHeight - 1) grid.style.minHeight = want > gridNatural + 1 ? want + 'px' : '';
   }
 
   tabsBox.addEventListener('click', e => {
     const tab = e.target.closest('.tab');
     if (!tab || tab.disabled || tab.dataset.cat === f.cat) return;
     f.cat = tab.dataset.cat;
-    update(true);
+    update();
   });
   tabsBox.addEventListener('keydown', e => {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
@@ -191,17 +244,77 @@
     next.scrollIntoView({ block: 'nearest', inline: 'nearest' });
     next.focus();
     f.cat = next.dataset.cat;
-    update(true);
+    update();
     e.preventDefault();
   });
   pricesBox.addEventListener('click', e => {
     const b = e.target.closest('.pchip');
     if (!b || b.dataset.price === f.price) return;
     f.price = b.dataset.price;
-    update(true);
+    update();
   });
-  sortSel.addEventListener('change', () => { f.sort = sortSel.value; update(false); });
-  $('#resetFilters').addEventListener('click', () => { f.cat = 'all'; f.price = 'any'; update(false); });
+  sortSel.addEventListener('change', () => { f.sort = sortSel.value; update(); });
+  $('#resetFilters').addEventListener('click', () => { f.cat = 'all'; f.price = 'any'; update(); });
+
+  /* ───────── 5.3 — телефон: кнопка «Фильтры (2)» и панель снизу ───────── */
+  const SORT_LABEL = { popular: 'Сначала популярные', asc: 'Дешевле', desc: 'Дороже' };
+  const countIn = (cat, pr) => PRODUCTS.filter(p => (cat === 'all' || p.cat === cat) && inPrice(p, pr)).length;
+  const activeN = o => (o.cat !== 'all') + (o.price !== 'any') + (o.sort !== 'popular');
+  const sheet = $('#fsheet'), fOpen = $('#fOpen');
+  let draft = null, sheetT = 0;
+
+  function syncBar() {
+    const n = activeN(f);
+    $('#fOpenLbl').textContent = n ? 'Фильтры (' + n + ')' : 'Фильтры';
+    fOpen.classList.toggle('is-active', n > 0);
+    const shown = visible().length;
+    $('#fSum').textContent = shown + ' ' + plural(shown, ['торт', 'торта', 'тортов']);
+  }
+  function renderSheet() {
+    const chip = (attr, val, label, on, off) =>
+      '<button class="schip" type="button" data-' + attr + '="' + val + '" aria-pressed="' + on + '"' + (off ? ' disabled' : '') + '>' + label + '</button>';
+    $('#fsCats').innerHTML = CATEGORIES.map(c => {
+      const n = countIn(c.id, draft.price);
+      return chip('cat', c.id, c.name + ' <span>' + n + '</span>', c.id === draft.cat, n === 0 && c.id !== draft.cat);
+    }).join('');
+    $('#fsPrices').innerHTML = PRICES.map(r => chip('price', r.id, r.label, r.id === draft.price, false)).join('');
+    $('#fsSort').innerHTML = SORTS.map(v => chip('sort', v, SORT_LABEL[v], v === draft.sort, false)).join('');
+    const n = countIn(draft.cat, draft.price);
+    $('#fsApply').textContent = 'Применить · ' + n + ' ' + plural(n, ['торт', 'торта', 'тортов']);
+  }
+  function openSheet() {
+    draft = { cat: f.cat, price: f.price, sort: f.sort };
+    renderSheet();
+    clearTimeout(sheetT);
+    sheet.classList.remove('is-closing');
+    sheet.hidden = false;
+    document.body.classList.add('is-locked');
+    $('[data-sclose].iconbtn', sheet).focus();
+  }
+  function closeSheet() {
+    if (sheet.hidden || sheet.classList.contains('is-closing')) return;
+    const done = () => { sheet.hidden = true; sheet.classList.remove('is-closing'); document.body.classList.remove('is-locked'); fOpen.focus(); };
+    if (reduced()) { done(); return; }
+    sheet.classList.add('is-closing');
+    sheetT = setTimeout(done, 220);
+  }
+  fOpen.addEventListener('click', openSheet);
+  sheet.addEventListener('click', e => {
+    if (e.target.closest('[data-sclose]')) { closeSheet(); return; }
+    const b = e.target.closest('.schip');
+    if (!b || b.disabled) return;
+    if (b.dataset.cat) draft.cat = b.dataset.cat;
+    if (b.dataset.price) { draft.price = b.dataset.price; if (countIn(draft.cat, draft.price) === 0) draft.cat = 'all'; }
+    if (b.dataset.sort) draft.sort = b.dataset.sort;
+    renderSheet();
+  });
+  $('#fsReset').addEventListener('click', () => { draft = { cat: 'all', price: 'any', sort: 'popular' }; renderSheet(); });
+  $('#fsApply').addEventListener('click', () => {
+    f.cat = draft.cat; f.price = draft.price; f.sort = draft.sort;
+    update();
+    closeSheet();
+  });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !sheet.hidden) closeSheet(); });
 
   /* ───────── ряды вкладок и цен: растушёвка у краёв + стрелки на десктопе ───────── */
   const ARROW = d => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="' +
@@ -254,14 +367,11 @@
     bar.style.setProperty('--stick-top', top + 'px');
     spacer.style.height = want ? barH + 'px' : '';
   }
-  const queueStick = () => { if (!stickRaf) stickRaf = requestAnimationFrame(updateStick); };
+  const queueStick = () => { if (!stickRaf) stickRaf = requestAnimationFrame(() => { relaxGrid(); updateStick(); }); };
   window.addEventListener('scroll', queueStick, { passive: true });
-  window.addEventListener('resize', () => { bar.classList.toggle('is-stuck', false); spacer.style.height = ''; queueStick(); });
-
-  function scrollToCatalog() {
-    const y = window.scrollY + catalogEl.getBoundingClientRect().top - stickTop() - (barH || bar.offsetHeight) - 8;
-    window.scrollTo({ top: Math.max(0, y), behavior: reduced() ? 'auto' : 'smooth' });
-  }
+  window.addEventListener('resize', () => {
+    bar.classList.toggle('is-stuck', false); spacer.style.height = ''; grid.style.minHeight = ''; queueStick();
+  });
 
   /* ───────────────────────── каталог ───────────────────────── */
   const grid = $('#grid');
@@ -280,8 +390,8 @@
         '<span class="card__name">' + p.name + '</span>' +
         '<span class="card__desc">' + p.desc + '</span>' +
         '<span class="card__foot">' +
-          '<span class="card__price">' + money(price(p)) + '<span>' + money(p.perKg) + ' / кг</span></span>' +
-          '<span class="card__weight">' + kg(p.weight) + '</span>' +
+          '<span class="card__price">' + fromWord(p) + money(price(p)) + '</span>' +
+          '<span class="card__weight">' + fromWord(p) + kg(minW(p)) + '</span>' +
         '</span>' +
         '<span class="card__more">Подробнее и расчёт →</span>' +
       '</span>';
@@ -394,7 +504,9 @@
     if (card) open(card.dataset.id, card);
   });
 
-  function open(id, trigger) {
+  let curW = 0;
+
+  function open(id, trigger, weight) {
     const p = PRODUCTS.find(x => x.id === id);
     if (!p) return;
     current = p;
@@ -404,16 +516,23 @@
     $('#mCat').textContent = catName(p.cat);
     $('#mTitle').textContent = p.name;
     $('#mDesc').textContent = p.desc;
-    $('#mPrice').textContent = money(price(p));
-    $('#mWeight').textContent = kg(p.weight);
-    $('#mPerKg').textContent = money(p.perKg);
     $('#mMeta').innerHTML = [
-      ['Минимальный вес', kg(p.minWeight)],
-      ['Ярусов', String(p.tiers)],
+      ['Минимальный вес', kg(minW(p))],
+      hasTiers(p) ? ['Ярусов', String(p.tiers)] : null,
       ['Декор', p.decor]
-    ].map(r => '<li><span>' + r[0] + '</span><b>' + r[1] + '</b></li>').join('');
+    ].filter(Boolean).map(r => '<li><span>' + r[0] + '</span><b>' + r[1] + '</b></li>').join('');
 
+    // вес: из подбора помощника, иначе — минимальный
+    const opts = weightOptions(p);
+    if (weight && opts.indexOf(weight) < 0) { opts.push(weight); opts.sort((x, y) => x - y); }
+    curW = weight || opts[0];
+    wBtns.innerHTML = opts.map(w =>
+      '<button class="wbtn" type="button" role="radio" data-w="' + w + '" aria-checked="false">' + kg(w) + '</button>').join('');
+    $('.wcalc', modal).classList.toggle('is-single', opts.length < 2);
+    $('#wLbl').textContent = p.cat === 'cupcakes' ? 'Вес набора' : 'Вес торта';
+    guests.value = '';
     calc();
+
     clearTimeout(closingT);
     modal.classList.remove('is-closing');
     modal.hidden = false;
@@ -421,12 +540,13 @@
     $('.modal__x').focus();
   }
 
-  function close() {
+  function close(keepFocus) {
     if (modal.hidden || modal.classList.contains('is-closing')) return;
+    if (keepFocus === true) lastFocus = null;
     const finish = () => {
       modal.hidden = true;
       modal.classList.remove('is-closing');
-      document.body.classList.remove('is-locked');
+      if (!document.querySelector('.cart:not([hidden]), .sheet:not([hidden])')) document.body.classList.remove('is-locked');
       current = null;
       if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
     };
@@ -438,53 +558,97 @@
   modal.addEventListener('click', e => { if (e.target.closest('[data-close]')) close(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) close(); });
 
-  /* ───────────────── калькулятор «сколько гостей» ───────────────── */
-  const guests = $('#cGuests'), portion = $('#cPortion'), out = $('#cOut');
+  /* ───────────────── вес кнопками + подсказка по гостям ───────────────── */
+  const wBtns = $('#wBtns'), guests = $('#cGuests'), gHint = $('#gHint'), wTotal = $('#wTotal');
 
-  /* формула веса — общая с ИИ-помощником */
-  function rawWeight(guestsN, per) {
-    const g = Math.max(1, Math.min(300, Number(guestsN) || 1));
-    return Math.ceil((g * (Number(per) || 170) / 1000) / 0.25) * 0.25;   // округление вверх до 0,25 кг
-  }
-  function weightForGuests(p, guestsN, per) {
-    return Math.max(rawWeight(guestsN, per), p.minWeight);
+  /* «На 15 человек обычно берут 2,5–3 кг» — диапазон с шагом 0,5 кг */
+  function guestText(g) {
+    const need = kgForGuests(g);
+    const lo = Math.max(0.5, Math.floor(need * 2 + 1e-9) / 2), hi = Math.max(0.5, Math.ceil(need * 2 - 1e-9) / 2);
+    const range = lo === hi ? kg(lo) : (lo.toLocaleString('ru-RU') + '–' + kg(hi));
+    return 'На ' + g + ' ' + plural(g, ['человека', 'человека', 'человек']) + ' обычно берут ' + range;
   }
 
   function calc() {
     if (!current) return;
-    const per = Number(portion.value);
-    const raw = rawWeight(guests.value, per);
-    const w = Math.max(raw, current.minWeight);
-    const note = w > raw ? 'минимальный вес торта' : '';
-
-    const tiers = w >= 7 ? 3 : w >= 4 ? 2 : 1;
-    const servings = Math.floor(w * 1000 / per);
-
-    out.innerHTML =
-      '<div class="chip chip--hl"><span>Нужный вес</span><b>' + kg(w) + '</b></div>' +
-      '<div class="chip"><span>Примерная цена</span><b>' + money(w * current.perKg) + '</b></div>' +
-      '<div class="chip"><span>Порций выйдет</span><b>' + servings + '</b></div>' +
-      '<div class="chip"><span>Ярусов</span><b>' + tiers + '</b></div>' +
-      (note ? '<p class="calc__hint" style="flex:1 1 100%;margin:0">Вес поднят до ' + kg(w) + ' — это ' + note + '.</p>' : '');
+    const g = Math.round(Number(guests.value));
+    let suggest = null;
+    if (g >= 1 && g <= 300) {
+      const need = kgForGuests(g), opts = $$('.wbtn', wBtns).map(b => Number(b.dataset.w));
+      suggest = opts.find(w => w >= need - 1e-9);
+      let extra = '';
+      if (suggest == null) extra = ' — это больше самого большого веса этого торта, лучше взять два';
+      else if (suggest === opts[0] && suggest / need >= 1.5) extra = '. Минимальный вес этого торта ' + kg(suggest) + ' — хватит с запасом';
+      gHint.textContent = guestText(g) + extra;
+    } else {
+      gHint.textContent = 'Подскажем вес по числу гостей';
+    }
+    $$('.wbtn', wBtns).forEach(b => {
+      const w = Number(b.dataset.w);
+      b.setAttribute('aria-checked', String(w === curW));
+      b.tabIndex = w === curW ? 0 : -1;
+      b.classList.toggle('is-suggested', suggest != null && w === suggest);   // подсвечиваем, но не выбираем
+    });
+    wTotal.textContent = kg(curW) + ' — ' + money(priceAt(current, curW));
   }
+  wBtns.addEventListener('click', e => {
+    const b = e.target.closest('.wbtn');
+    if (!b) return;
+    curW = Number(b.dataset.w);
+    calc();
+  });
+  wBtns.addEventListener('keydown', e => {
+    const d = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[e.key];
+    if (!d) return;
+    const bs = $$('.wbtn', wBtns), i = bs.findIndex(b => Number(b.dataset.w) === curW);
+    const n = bs[(i + d + bs.length) % bs.length];
+    curW = Number(n.dataset.w); calc(); n.focus();
+    e.preventDefault();
+  });
   guests.addEventListener('input', calc);
-  portion.addEventListener('change', calc);
 
-  /* ───────────────────────── мелочи ───────────────────────── */
-  const toast = $('#toast');
-  let toastT = 0;
-  document.addEventListener('click', e => {
-    if (!e.target.closest('.js-demo')) return;
-    clearTimeout(toastT);
-    toast.textContent = 'Это демо-сайт — заявки не отправляются';
-    toast.classList.add('is-on');
-    toastT = setTimeout(() => toast.classList.remove('is-on'), 2600);
+  /* корзина (js/cart.js): «В корзину» — полёт и тост; «Оформить заказ» — сразу в корзину */
+  $('#mAdd').addEventListener('click', () => {
+    if (!current || !window.MKCart) return;
+    window.MKCart.add(current.id, curW, { from: $('.ph', $('#mMedia')) });
+    close(true);
+  });
+  $('#mOrder').addEventListener('click', () => {
+    if (!current || !window.MKCart) return;
+    window.MKCart.add(current.id, curW, { silent: true });
+    close(true);
+    window.MKCart.open();
   });
 
-  // факты в герое — считаются из каталога, а не придумываются
+  /* ───────────────────────── мелочи ───────────────────────── */
+  const toastEl = $('#toast');
+  let toastT = 0;
+  function toast(text) {
+    clearTimeout(toastT);
+    toastEl.textContent = text;
+    toastEl.classList.add('is-on');
+    toastT = setTimeout(() => toastEl.classList.remove('is-on'), 2600);
+  }
+  document.addEventListener('click', e => {
+    if (e.target.closest('.js-demo')) toast('Это демо-сайт — заявки не отправляются');
+  });
+
+  /* 8 — телефон владельца: одна константа OWNER_PHONE в js/data.js */
+  const phone = typeof OWNER_PHONE === 'string' ? OWNER_PHONE.trim() : '';
+  const phoneSet = phone !== '' && phone.indexOf('_') < 0 && phone.replace(/\D/g, '').length >= 10;
+  $$('[data-phone]').forEach(el => { el.textContent = phone || '+7 (___) ___-__-__'; });
+  const callBtn = $('#callBtn');
+  if (phoneSet) {
+    callBtn.href = 'tel:' + phone.replace(/[^\d+]/g, '');
+    callBtn.setAttribute('aria-label', 'Позвонить: ' + phone);
+  } else {
+    callBtn.addEventListener('click', e => { e.preventDefault(); toast('Номер пока не указан: ' + (phone || '+7 (___) ___-__-__')); });
+  }
+
+  // факты в герое — считаются из каталога, а не придумываются; цена — «от», за минимальный вес
   $('#fCount').textContent = PRODUCTS.length;
   $('#fCats').textContent = new Set(PRODUCTS.map(p => p.cat)).size;
-  $('#fMin').textContent = money(Math.min.apply(null, PRODUCTS.map(price)));
+  $('#fMin').textContent = 'от\u00a0' + money(Math.min.apply(null, PRODUCTS.map(price)));
 
   // декоративная карточка в герое
   $('#heroArt').innerHTML = placeholder(PRODUCTS.find(p => p.id === 'ivory'), true);
@@ -498,8 +662,12 @@
     kg: kg,
     price: price,
     plural: plural,
+    priceAt: priceAt,
+    weightOptions: weightOptions,
+    kgForGuests: kgForGuests,
     weightForGuests: weightForGuests,
-    openProduct: function (id, trigger) { open(id, trigger || null); }
+    toast: toast,
+    openProduct: function (id, trigger, weight) { open(id, trigger || null, weight); }
   };
 
   // первое выставление состояния — без переходов, иначе активные кнопки «наплывают» цветом при загрузке

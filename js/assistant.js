@@ -25,8 +25,11 @@
   const num = n => new Intl.NumberFormat('ru-RU').format(Math.round(n));
 
   const LS_KEY = 'mk-chat-v3';
-  const PER = 170;                 // порция, г — как в калькуляторе модалки
-  const R = 90, A_FROM = 180, A_TO = 270, STAGGER = 40;
+  const STAGGER = 40;
+  const FAN_R = 110, FAN_ITEM = 56, FAN_GAP = 12;   // радиус веера, размер кнопки, зазор между ними
+  const HINT_KEY = 'mk-ai-hint', OPENED_KEY = 'mk-ai-opened';
+  const lsGet = k => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+  const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
 
   /* ───────────────────────── иконки (рисуем сами) ───────────────────────── */
   const I = {
@@ -49,15 +52,27 @@
             '<path d="M21 3 10.5 13.5M21 3l-6.6 18-3.9-7.5L3 9.6 21 3Z"/></svg>'
   };
 
-  /* соцсети: нейтральные глифы, НЕ официальные логотипы */
+  /* соцсети: фирменные цвета, глифы нарисованы вручную (ничего не скачано) */
+  const TT = 'M13.4 4v10.7a3.1 3.1 0 1 1-3.1-3.1M13.4 4c.4 2.4 2 3.9 4.6 4.1';
   const SOCIALS = [
-    { name: 'MAX', svg: '<path d="M4.5 18.5V5.8l7.5 9 7.5-9v12.7"/>' },
-    { name: 'Telegram', svg: '<path d="M21.3 3.4 2.9 10.6l6.4 2.5 2.5 6.4 9.5-16.1Z"/><path d="M21.3 3.4 9.3 13.1"/>' },
-    { name: 'VK', svg: '<circle cx="9" cy="8.6" r="3.1"/><path d="M3 19.4c0-3 2.7-4.9 6-4.9s6 1.9 6 4.9"/><path d="M16.2 6.2a3 3 0 0 1 0 5.6M18 19.4c0-2-.8-3.6-2.2-4.6"/>' },
-    { name: 'Instagram', svg: '<rect x="2.6" y="6.6" width="18.8" height="13.4" rx="3.2"/><path d="M8.6 6.6 10 4h4l1.4 2.6"/><circle cx="12" cy="13.3" r="3.5"/>' },
-    { name: 'TikTok', svg: '<circle cx="7.4" cy="17.6" r="3.2"/><path d="M10.6 17.6V3.6L19 6.3"/>' }
+    { name: 'Telegram', cls: 'tg',
+      svg: '<path fill="#fff" d="M19.6 5.2 3.9 11.3c-.9.35-.88 1.63.03 1.94l3.86 1.3 1.5 4.7c.2.62.98.82 1.45.37l2.2-2.1 3.92 2.9c.58.43 1.42.12 1.58-.6l2.6-12.1c.18-.86-.66-1.57-1.44-1.21Z"/>' +
+           '<path fill="none" stroke="#2AABEE" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round" d="m8.2 14.5 8.4-6.3-6.5 7.2-.3 3.1"/>' },
+    { name: 'VK', cls: 'vk',
+      svg: '<path fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" d="M3.4 8.2l3 7.8 3-7.8M12.6 8.2V16M12.6 12.3l4.2-4.1M13.8 11.3l3.9 4.7"/>' },
+    { name: 'Instagram', cls: 'ig',
+      svg: '<rect x="4" y="4" width="16" height="16" rx="4.6" fill="none" stroke="#fff" stroke-width="1.9"/>' +
+           '<circle cx="12" cy="12" r="3.7" fill="none" stroke="#fff" stroke-width="1.9"/><circle cx="16.9" cy="7.1" r="1.15" fill="#fff"/>' },
+    { name: 'TikTok', cls: 'tt',
+      svg: '<g fill="none" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">' +
+             '<path stroke="#25F4EE" transform="translate(-1.1 -1)" d="' + TT + '"/>' +
+             '<path stroke="#FE2C55" transform="translate(1.1 1)" d="' + TT + '"/>' +
+             '<path stroke="#fff" d="' + TT + '"/></g>' },
+    { name: 'MAX', cls: 'max',
+      svg: '<path fill="none" stroke="#fff" stroke-width="1.7" stroke-linejoin="round" d="M12 3.6c4.9 0 8.6 3.4 8.6 7.8s-3.7 7.8-8.6 7.8c-1 0-2-.1-2.9-.4L5 20.6l1.2-3.6c-1.8-1.4-2.8-3.4-2.8-5.6C3.4 7 7.1 3.6 12 3.6Z"/>' +
+           '<path fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M8.3 14V8.9l3.7 3.6 3.7-3.6V14"/>' }
   ];
-  const glyph = d => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
+  const glyph = d => '<svg viewBox="0 0 24 24" aria-hidden="true">' + d + '</svg>';
 
   /* ═════════════════════════ СЛОВА И ФОРМЫ ═════════════════════════ */
 
@@ -294,9 +309,9 @@
     const v = ALL.filter(p => ['birthday', 'mousse', 'cheesecake'].indexOf(p.cat) > -1).map(p => p.perKg).sort((a, b) => a - b);
     return v.length % 2 ? v[(v.length - 1) / 2] : (v[v.length / 2 - 1] + v[v.length / 2]) / 2;
   })();
-  const needW = g => MK.weightForGuests({ minWeight: 1.2 }, g, PER);   // вес под гостей «вообще»
-  const rawW  = g => MK.weightForGuests({ minWeight: 0 }, g, PER);     // без минимального веса
-  const exactKg = g => g * PER / 1000;                                 // точная потребность
+  const exactKg = g => MK.kgForGuests(g);                              // точная потребность, 180 г на человека
+  const rawW  = g => Math.max(0.5, Math.ceil(exactKg(g) * 2 - 1e-9) / 2); // она же с шагом 0,5 кг
+  const needW = g => MK.weightForGuests({ minWeight: 1.5, tiers: 1 }, g); // вес под гостей «вообще»
 
   function compare(n, k) {
     const one = needW(n), g = Math.ceil(n / k), each = needW(g);
@@ -308,7 +323,7 @@
     return ALL.filter(p => {
       if (tiered) return p.tiers >= 2;
       if (p.cat === 'cupcakes') return false;             // продаются наборами, не на вес
-      if (p.cat === 'bento') return perCake <= 4;          // бенто — на 1–4 человек
+      if (p.cat === 'bento') return perCake <= 2;          // бенто — на 1–2 человека (так в описании)
       if (p.cat === 'kids') return occasion === 'kids';
       if (p.cat === 'wedding') return occasion === 'wedding';
       return true;
@@ -323,8 +338,8 @@
     return s;
   }
   function option(p, g) {
-    const w = MK.weightForGuests(p, g, PER);
-    return { p: p, g: g, w: w, sum: w * p.perKg };
+    const w = MK.weightForGuests(p, g);
+    return { p: p, g: g, w: w, sum: MK.priceAt(p, w) };
   }
   /* вес сильно больше нужного (из-за минимального веса) — такой торт ниже в выдаче */
   function overshoot(o) {
@@ -402,13 +417,17 @@
     '<div class="fan" id="mkFan">' +
       '<button class="fab fab--soc" id="mkSocBtn" type="button" aria-label="Поделиться" aria-expanded="false">' + I.share + '</button>' +
       SOCIALS.map(s =>
-        '<a class="fan__item" href="#" tabindex="-1" aria-label="Поделиться: ' + s.name + '">' +
-          glyph(s.svg) + '<span class="fan__tip">' + s.name + '</span>' +
+        '<a class="fan__item fan__item--' + s.cls + '" href="#" tabindex="-1" aria-label="Поделиться: ' + s.name + '">' +
+          glyph(s.svg) + '<span class="fan__tip" aria-hidden="true">' + s.name + '</span>' +
         '</a>').join('') +
     '</div>' +
     '<div class="fabwrap">' +
       '<button class="fab fab--ai" id="mkAiBtn" type="button" aria-label="ИИ-помощник" aria-expanded="false" aria-controls="mkChat">' + I.ai + '</button>' +
       '<span class="fab__tip" aria-hidden="true">ИИ-помощник</span>' +
+      '<div class="ai-hint" id="mkHint" hidden>' +
+        '<button class="ai-hint__t" type="button">Не знаете, какой торт выбрать? Спросите — подберу за минуту</button>' +
+        '<button class="ai-hint__x" type="button" aria-label="Закрыть подсказку">' + I.close + '</button>' +
+      '</div>' +
     '</div>';
 
   const chat = document.createElement('section');
@@ -500,12 +519,12 @@
     box.innerHTML = (e.title ? '<div class="recs__ttl">' + e.title + '</div>' : '') + e.items.map(it => {
       const p = ALL.find(x => x.id === it.id);
       if (!p) return '';
-      const w = MK.weightForGuests(p, it.g, PER);
-      return '<button class="rec" type="button" data-id="' + p.id + '">' +
+      const w = MK.weightForGuests(p, it.g);
+      return '<button class="rec" type="button" data-id="' + p.id + '" data-w="' + w + '">' +
                '<span class="rec__ph">' + MK.placeholder(p) + '</span>' +
                '<span><span class="rec__n">' + p.name + '</span>' +
                '<span class="rec__m">' + MK.catName(p.cat) + ' · ' + kg(w) + '</span>' +
-               '<span class="rec__p">≈ ' + money(w * p.perKg) + '</span>' +
+               '<span class="rec__p">≈ ' + money(MK.priceAt(p, w)) + '</span>' +
                (it.why ? '<span class="rec__why">' + it.why + '</span>' : '') + '</span>' +
              '</button>';
     }).join('');
@@ -889,7 +908,7 @@
   async function explainDiff() {
     const f = F(), n = f.guests, c = compare(n, 2), half = money(c.each * MED_KG), diff = Math.round(c.sumMany - c.sumOne);
     f.diffShown = true; save();
-    await say('Считаю по средней цене за килограмм в каталоге — ' + money(MED_KG) + '. ' +
+    await say('Считаю по средней цене тортов в каталоге. ' +
               'Один торт ' + onN(n) + ': ' + kg(c.one) + ' — около ' + money(c.sumOne) + '. ' +
               'Два торта по ' + kg(c.each) + ': ' + half + ' + ' + half + ' = ' + money(c.sumMany) + '. ' +
               (diff > 0 ? 'Разница — около ' + money(diff) + '.' : 'Разницы по весу нет.') +
@@ -1080,7 +1099,7 @@
     }
     const rec = e.target.closest('.rec');
     if (rec) {
-      MK.openProduct(rec.dataset.id, rec);
+      MK.openProduct(rec.dataset.id, rec, Number(rec.dataset.w) || undefined);   // в карточке выбран тот же вес
       if (window.innerWidth <= 620) closeChat(false);
     }
   });
@@ -1106,6 +1125,9 @@
   let started = false, closeT = 0;
 
   function openChat() {
+    hideHint();
+    aiBtn.classList.remove('is-pulse');
+    lsSet(OPENED_KEY, '1');
     clearTimeout(closeT);
     chat.classList.remove('is-closing');
     chat.hidden = false;
@@ -1141,16 +1163,69 @@
     closeT = setTimeout(done, 180);
   }
   aiBtn.addEventListener('click', () => (chat.hidden || chat.classList.contains('is-closing')) ? openChat() : closeChat());
+  // кнопка в герое «Подобрать торт с помощником»
+  document.addEventListener('click', e => { if (e.target.closest('[data-open-ai]')) { e.preventDefault(); openChat(); } });
+
+  /* ───────── 6.1 / 6.2 — облачко через 8 с и пульсация, пока помощника не открывали ───────── */
+  const hint = $('#mkHint');
+  let hintT = 0;
+  function showHint() {
+    hint.hidden = false;
+    requestAnimationFrame(() => hint.classList.add('is-on'));
+    lsSet(HINT_KEY, '1');                              // показываем один раз
+  }
+  function hideHint() {
+    clearTimeout(hintT);
+    if (hint.hidden) return;
+    hint.classList.remove('is-on');
+    if (reduced()) hint.hidden = true;
+    else setTimeout(() => { hint.hidden = true; }, 220);
+  }
+  const busyScreen = () => !chat.hidden || fan.classList.contains('is-open') ||
+                           document.querySelector('.modal:not([hidden]), .cart:not([hidden]), .sheet:not([hidden])');
+  function tryHint() {
+    if (lsGet(HINT_KEY) || lsGet(OPENED_KEY)) return;
+    if (busyScreen()) { hintT = setTimeout(tryHint, 3000); return; }   // не перекрываем открытое окно — ждём
+    showHint();
+  }
+  if (!lsGet(OPENED_KEY)) {
+    aiBtn.classList.add('is-pulse');
+    if (!lsGet(HINT_KEY)) hintT = setTimeout(tryHint, 8000);
+  }
+  $('.ai-hint__t', hint).addEventListener('click', openChat);
+  $('.ai-hint__x', hint).addEventListener('click', () => { hideHint(); aiBtn.focus(); });
 
   /* ───────────────────────── веер соцсетей ───────────────────────── */
   const fan = $('#mkFan'), socBtn = $('#mkSocBtn');
   const items = $$('.fan__item', fan);
   const N = items.length;
 
+  /* Дуга идёт от «влево-вниз» через «вверх» к «вверх-вправо» — сколько позволяют края экрана.
+     Радиус 110px; если при нём между кнопками меньше 12px — радиус чуть растёт. */
+  function layoutFan() {
+    const r = socBtn.getBoundingClientRect();
+    if (!r.width) return;
+    const cx = r.left + r.width / 2, cy = r.top + r.height / 2, half = FAN_ITEM / 2;
+    const capH = window.innerWidth <= 620 ? 18 : 4;          // на телефоне под кнопкой всегда подпись
+    const right = window.innerWidth - cx - half - 4, down = window.innerHeight - cy - half - capH - 4;
+    const deg = x => x * 180 / Math.PI, clamp = x => Math.max(-1, Math.min(1, x));
+    let R = FAN_R, from = 180, to = 270;
+    for (; R <= 140; R += 2) {
+      from = 180 - deg(Math.asin(clamp(down / R)));
+      to = 270 + deg(Math.asin(clamp(right / R)));
+      const step = (to - from) / (N - 1);
+      if (2 * R * Math.sin(step * Math.PI / 360) >= FAN_ITEM + FAN_GAP) break;
+    }
+    items.forEach((el, i) => {
+      const a = (from + (to - from) * (i / (N - 1))) * Math.PI / 180;
+      el.style.setProperty('--x', (Math.cos(a) * R).toFixed(1) + 'px');
+      el.style.setProperty('--y', (Math.sin(a) * R).toFixed(1) + 'px');
+    });
+  }
+  layoutFan();
+  window.addEventListener('resize', layoutFan);
+
   items.forEach((el, i) => {
-    const rad = (A_FROM + (A_TO - A_FROM) * (i / (N - 1))) * Math.PI / 180;   // 180° (влево) → 270° (вверх)
-    el.style.setProperty('--x', (Math.cos(rad) * R).toFixed(1) + 'px');
-    el.style.setProperty('--y', (Math.sin(rad) * R).toFixed(1) + 'px');
     el.addEventListener('click', ev => {
       ev.preventDefault();
       setFan(false);
@@ -1160,6 +1235,7 @@
 
   function setFan(open) {
     if (open && !chat.hidden) closeChat(false);
+    if (open) { layoutFan(); hideHint(); }
     fan.classList.toggle('is-open', open);
     socBtn.setAttribute('aria-expanded', String(open));
     items.forEach((el, i) => {
@@ -1178,14 +1254,7 @@
     if (!chat.hidden) closeChat();
   }, true);
 
-  function toast(text) {
-    const t = $('#toast');
-    if (!t) return;
-    t.textContent = text;
-    t.classList.add('is-on');
-    clearTimeout(toast._t);
-    toast._t = setTimeout(() => t.classList.remove('is-on'), 2600);
-  }
+  const toast = text => MK.toast(text);
 
   /* наружу — для отладки и тестов */
   window.MKChat = {
