@@ -593,6 +593,7 @@
     over:    { full: '', short: 'Показать этот вариант?' },
     upgrade: { full: '', short: 'Показать вариант подороже?' },
     fewer:   { full: '', short: 'Показать набор или подобрать меньше тортов?' },
+    recount: { full: '', short: 'Сколько тортов взять?' },
     clarify: { full: '', short: () => 'К чему относится ' + num(state.pending.vals[0]) + '?' },
     done:    { full: 'Нажмите на карточку — откроется описание и калькулятор веса. Захотите что-то поменять — напишите или начните заново.',
                short: 'Могу подобрать заново или поменять условия.' }
@@ -615,7 +616,14 @@
       case 'budget':   return [['до 3 000', 'b:lt3'], ['3 000-6 000', 'b:3-6'], ['6 000+', 'b:gt6'], ['Не важно', 'b:any'], ['Пропустить', 'b:skip']];
       case 'short':    return p.m > 0 ? [['Добавить другие', 's:add'], ['Только ' + FLAVORS[f.flavors[0]].say, 's:only']]
                                       : [['Показать другие', 's:add'], ['Не надо', 's:no']];
-      case 'over':     return [['Покажи', 'o:show'], ['Не надо', 'o:no']];
+      case 'over':     return p.set && p.k > 1
+                              ? [['Покажи', 'o:show'], ['Взять меньше тортов', 'o:fewer'], ['Не надо', 'o:no']]
+                              : [['Покажи', 'o:show'], ['Не надо', 'o:no']];
+      case 'recount': {
+        const out = [];
+        for (let t = (p.k || 2) - 1; t >= 1; t--) out.push([cap(CAKES_WORD[t]), 'rc:' + t]);
+        return out;
+      }
       case 'upgrade':  return [['Покажи', 'u:show'], ['Не надо, этого хватит', 'u:no']];
       case 'fewer':    return [['Показать набор', 'fw:many'], ['Меньше тортов', 'fw:fewer'], ['Не надо', 'fw:no']];
       case 'clarify': {
@@ -847,7 +855,7 @@
     }
     state.pending = { kind: 'over', set: cheap.set.map(o => o.p.id), k: k };
     await ask('over', 'Самый доступный набор — ' + money(cheap.sum) + '. Это ' + (cheap.sum <= max * 1.25 ? 'чуть ' : '') +
-                      'выше вашего бюджета. Если готовы рассмотреть — покажу, если нет, ничего страшного.');
+                      'выше вашего бюджета. Могу показать его или пересобрать на меньшее число тортов.');
     return 'pending';
   }
 
@@ -864,6 +872,13 @@
       await say(kind === 'upgrade' ? 'Хорошо, остаёмся на этом.' : 'Хорошо. Если захотите посмотреть другие варианты — я здесь.');
       return ask('done');
     }
+    // человек хотел несколько тортов, но в бюджет не влезло — пересобираем на меньше
+    if (p.kind === 'over' && v === 'fewer') {
+      if (p.k <= 2) return recount(1);
+      state.pending = { kind: 'recount', k: p.k };
+      return ask('recount', 'Хорошо. На сколько пересобрать?');
+    }
+    if (p.kind === 'recount') return recount(Number(v));
     if (p.kind === 'over') {
       if (p.items) recs(p.items);
       else {
@@ -887,6 +902,15 @@
       return present();
     }
     return finish();
+  }
+
+  async function recount(n) {
+    const f = F();
+    f.cakes = Math.max(1, n); f.cakesExplicit = true;            // человек сам выбрал меньше
+    if (f.cakes === 1) f.flavors = f.flavors.slice(0, 1);
+    save();
+    await say('Хорошо, пересоберу: ' + CAKES_WORD[f.cakes] + '.');
+    return present();
   }
 
   /* 5.6 — про цену спросили сразу: отвечаем, а не уходим от ответа */
@@ -967,7 +991,8 @@
       return next();
     }
     if (kind === 's') return resolvePending('short', arg);
-    if (kind === 'o') return resolvePending('over', arg === 'show' ? 'show' : 'no');
+    if (kind === 'o') return resolvePending('over', arg === 'show' || arg === 'fewer' ? arg : 'no');
+    if (kind === 'rc') return resolvePending('recount', arg);
     if (kind === 'u') return resolvePending('upgrade', arg === 'show' ? 'show' : 'no');
     if (kind === 'fw') return resolvePending('fewer', arg);
     if (kind === 'cl') return applyClarify(arg);
@@ -1181,7 +1206,14 @@
     if (reduced()) hint.hidden = true;
     else setTimeout(() => { hint.hidden = true; }, 220);
   }
-  const busyScreen = () => !chat.hidden || fan.classList.contains('is-open') ||
+  // на телефоне облачко перекрыло бы кнопку героя «Подобрать торт с помощником» — ждём, пока она уйдёт с экрана
+  const heroAiVisible = () => {
+    const b = window.innerWidth <= 620 && document.querySelector('.hero [data-open-ai]');
+    if (!b) return false;
+    const r = b.getBoundingClientRect();
+    return r.bottom > 0 && r.top < window.innerHeight;
+  };
+  const busyScreen = () => !chat.hidden || fan.classList.contains('is-open') || heroAiVisible() ||
                            document.querySelector('.modal:not([hidden]), .cart:not([hidden]), .sheet:not([hidden])');
   function tryHint() {
     if (lsGet(HINT_KEY) || lsGet(OPENED_KEY)) return;

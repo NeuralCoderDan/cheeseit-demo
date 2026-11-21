@@ -445,6 +445,26 @@ body.is-locked { overflow: hidden; }
   html { scroll-padding-top: 130px; }
   .toggle__lbl { display: none; }
   .toggle { padding: 0 10px; }
+  /* меню листается — растушёвка у края, пока справа есть ещё пункты */
+  .nav { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent);
+                 mask-image: linear-gradient(to right, #000 calc(100% - 48px), transparent); }
+  .nav.is-end { -webkit-mask-image: none; mask-image: none; }
+}
+@media (max-width: 620px) {
+  /* шапка компактнее: тема и «Позвонить» в одной строке с логотипом */
+  .hdr__in { flex-wrap: wrap; gap: 8px 10px; padding-block: 10px 8px; min-height: 0; }
+  .brand { gap: 9px; }
+  .brand__mark { width: 34px; height: 34px; border-radius: 10px; }
+  .brand__mark svg { width: 21px; height: 21px; }
+  .brand__txt { font-size: .98rem; }
+  .brand__txt em { font-size: .58rem; letter-spacing: .18em; }
+  .hdr__act { gap: 8px; }
+  .toggle { height: 38px; }
+  .hdr__act .btn--sm { --h: 38px; padding: 0 14px; font-size: .84rem; }
+  .nav { font-size: .86rem; }
+  /* плавающие кнопки занимают правые 92px — кнопки героя до них не доходят */
+  .hero__btns { padding-right: 84px; }
+  .hero__btns .btn--lg { --h: 50px; padding: 8px 20px; font-size: .92rem; line-height: 1.25; text-align: center; max-width: 100%; }
 }
 @media (max-width: 620px) {
   .grid { grid-template-columns: 1fr !important; }
@@ -522,6 +542,7 @@ html.vt-cols::view-transition-new(root) { animation: none; }
 .sort select:hover, .sort select:focus { border-color: var(--accent); outline: none; }
 
 .empty { display: grid; justify-items: center; gap: 16px; }
+.empty[hidden] { display: none; }        /* иначе display:grid перебивает hidden и текст читают скринридеры */
 .empty p { color: var(--muted); }
 
 /* ============================================================

@@ -349,6 +349,13 @@
   makeScroller(tabsBox);
   makeScroller(pricesBox);
 
+  // меню в шапке на телефоне листается: растушёвка справа, пока не докрутили до конца
+  const nav = $('.nav');
+  const navEnd = () => nav.classList.toggle('is-end', nav.scrollLeft >= nav.scrollWidth - nav.clientWidth - 2);
+  nav.addEventListener('scroll', navEnd, { passive: true });
+  window.addEventListener('resize', navEnd);
+  navEnd();
+
   /* 8.1 — панель под шапкой не липнет над первым экраном; прилипает, когда доскроллили до каталога */
   const bar = $('#tabsbar'), hdr = $('.hdr'), catalogEl = $('#catalog');
   const spacer = document.createElement('div');
@@ -562,9 +569,12 @@
   const wBtns = $('#wBtns'), guests = $('#cGuests'), gHint = $('#gHint'), wTotal = $('#wTotal');
 
   /* «На 15 человек обычно берут 2,5–3 кг» — диапазон с шагом 0,5 кг */
-  function guestText(g) {
+  function guestRange(g) {
     const need = kgForGuests(g);
-    const lo = Math.max(0.5, Math.floor(need * 2 + 1e-9) / 2), hi = Math.max(0.5, Math.ceil(need * 2 - 1e-9) / 2);
+    return [Math.max(0.5, Math.floor(need * 2 + 1e-9) / 2), Math.max(0.5, Math.ceil(need * 2 - 1e-9) / 2)];
+  }
+  function guestText(g) {
+    const r = guestRange(g), lo = r[0], hi = r[1];
     const range = lo === hi ? kg(lo) : (lo.toLocaleString('ru-RU') + '–' + kg(hi));
     return 'На ' + g + ' ' + plural(g, ['человека', 'человека', 'человек']) + ' обычно берут ' + range;
   }
@@ -572,10 +582,14 @@
   function calc() {
     if (!current) return;
     const g = Math.round(Number(guests.value));
-    let suggest = null;
+    let suggest = null, marked = [];
     if (g >= 1 && g <= 300) {
       const need = kgForGuests(g), opts = $$('.wbtn', wBtns).map(b => Number(b.dataset.w));
       suggest = opts.find(w => w >= need - 1e-9);
+      // подсвечиваем все веса из диапазона подсказки; если ни одного нет — ближайший подходящий
+      const r = guestRange(g);
+      marked = opts.filter(w => w >= r[0] - 1e-9 && w <= r[1] + 1e-9);
+      if (!marked.length && suggest != null) marked = [suggest];
       let extra = '';
       if (suggest == null) extra = ' — это больше самого большого веса этого торта, лучше взять два';
       else if (suggest === opts[0] && suggest / need >= 1.5) extra = '. Минимальный вес этого торта ' + kg(suggest) + ' — хватит с запасом';
@@ -587,7 +601,7 @@
       const w = Number(b.dataset.w);
       b.setAttribute('aria-checked', String(w === curW));
       b.tabIndex = w === curW ? 0 : -1;
-      b.classList.toggle('is-suggested', suggest != null && w === suggest);   // подсвечиваем, но не выбираем
+      b.classList.toggle('is-suggested', marked.indexOf(w) > -1);   // подсвечиваем, но не выбираем
     });
     wTotal.textContent = kg(curW) + ' — ' + money(priceAt(current, curW));
   }
