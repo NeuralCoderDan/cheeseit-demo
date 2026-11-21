@@ -1,17 +1,29 @@
 /* ============================================================
-   Логика демо-сайта: тема, вкладки-фильтр, сетка 2/3/4,
-   3D-наклон карточек, модалка с калькулятором гостей.
+   Логика демо-сайта: тема (с круговым раскрытием), вкладки категорий,
+   фильтр по цене и сортировка (FLIP), сетка 2/3/4, 3D-наклон карточек,
+   модалка с калькулятором гостей.
    ============================================================ */
 (function () {
   'use strict';
 
   const $  = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+  const html = document.documentElement;
+  const reduced = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const EASE = 'cubic-bezier(.22,.8,.3,1)';
 
   const money = n => new Intl.NumberFormat('ru-RU').format(Math.round(n)) + ' ₽';
   const kg = n => (Math.round(n * 100) / 100).toLocaleString('ru-RU') + ' кг';
   const catName = id => (CATEGORIES.find(c => c.id === id) || {}).name || '';
   const price = p => p.perKg * p.weight;
+
+  function plural(n, forms) {
+    const a = Math.abs(n) % 100, b = a % 10;
+    if (a > 10 && a < 20) return forms[2];
+    if (b > 1 && b < 5) return forms[1];
+    if (b === 1) return forms[0];
+    return forms[2];
+  }
 
   /* ───────────────────────── тема ───────────────────────── */
   const THEME_KEY = 'mk-theme';
@@ -19,7 +31,7 @@
   const themeLbl = $('#themeLbl');
 
   function applyTheme(mode, save) {
-    document.documentElement.setAttribute('data-theme', mode);
+    html.setAttribute('data-theme', mode);
     themeBtn.setAttribute('aria-pressed', String(mode === 'dark'));
     themeLbl.textContent = mode === 'dark' ? 'Тёмная' : 'Светлая';
     if (save) { try { localStorage.setItem(THEME_KEY, mode); } catch (e) {} }
@@ -28,10 +40,39 @@
   try { stored = localStorage.getItem(THEME_KEY); } catch (e) {}
   applyTheme(stored === 'light' ? 'light' : 'dark', false);
 
-  themeBtn.addEventListener('click', () => {
-    const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-    applyTheme(next, true);
-  });
+  let fadeT = 0;
+  function switchTheme() {
+    const next = html.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+
+    // 1.5: без анимаций вообще
+    if (reduced()) { applyTheme(next, true); return; }
+
+    // 1.2: нет View Transitions — плавный CSS-переход цветов на время смены
+    if (!document.startViewTransition) {
+      html.classList.add('theme-fade');
+      applyTheme(next, true);
+      clearTimeout(fadeT);
+      fadeT = setTimeout(() => html.classList.remove('theme-fade'), 350);
+      return;
+    }
+
+    // 1.1: новая тема раскрывается кругом из центра кнопки до дальнего угла
+    const r = themeBtn.getBoundingClientRect();
+    const x = r.left + r.width / 2;
+    const y = r.top + r.height / 2;
+    const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y));
+
+    html.classList.add('vt-theme');
+    const t = document.startViewTransition(() => applyTheme(next, true));
+    t.ready.then(() => {
+      html.animate(
+        { clipPath: ['circle(0px at ' + x + 'px ' + y + 'px)', 'circle(' + radius + 'px at ' + x + 'px ' + y + 'px)'] },
+        { duration: 500, easing: 'ease-in-out', pseudoElement: '::view-transition-new(root)' }
+      );
+    }).catch(() => {});
+    t.finished.finally(() => html.classList.remove('vt-theme'));
+  }
+  themeBtn.addEventListener('click', switchTheme);
 
   /* ───────────────────── плейсхолдер вместо фото ───────────────────── */
   function placeholder(p, big) {
@@ -43,82 +84,171 @@
     );
   }
 
-  /* ───────────────────────── вкладки ───────────────────────── */
+  /* ───────────────────────── фильтры ───────────────────────── */
+  const PRICES = [
+    { id: 'any',  label: 'Любая' },
+    { id: 'lt3',  label: 'до 3 000 ₽',                  max: 3000 },
+    { id: '3-6',  label: '3 000 – 6 000 ₽',        min: 3000,  max: 6000 },
+    { id: '6-10', label: '6 000 – 10 000 ₽',       min: 6000,  max: 10000 },
+    { id: 'gt10', label: 'от 10 000 ₽',                 min: 10000 }
+  ];
+  const SORTS = ['popular', 'asc', 'desc'];
+  const FILTER_KEY = 'mk-filters';
+  const ORDER = new Map(PRODUCTS.map((p, i) => [p.id, i]));
+
+  // границы без щелей и пересечений: (min; max]
+  function inPrice(p, id) {
+    const r = PRICES.find(x => x.id === id) || PRICES[0];
+    const v = price(p);
+    if (r.min != null && v <= r.min) return false;
+    if (r.max != null && v > r.max) return false;
+    return true;
+  }
+
+  const f = { cat: 'all', price: 'any', sort: 'popular' };
+  try {
+    const saved = JSON.parse(localStorage.getItem(FILTER_KEY) || 'null');
+    if (saved) {
+      if (CATEGORIES.some(c => c.id === saved.cat)) f.cat = saved.cat;
+      if (PRICES.some(x => x.id === saved.price))   f.price = saved.price;
+      if (SORTS.indexOf(saved.sort) > -1)           f.sort = saved.sort;
+    }
+  } catch (e) {}
+  const saveFilters = () => { try { localStorage.setItem(FILTER_KEY, JSON.stringify(f)); } catch (e) {} };
+
+  function visible() {
+    const list = PRODUCTS.filter(p => (f.cat === 'all' || p.cat === f.cat) && inPrice(p, f.price));
+    if (f.sort === 'asc')  return list.sort((a, b) => price(a) - price(b) || ORDER.get(a.id) - ORDER.get(b.id));
+    if (f.sort === 'desc') return list.sort((a, b) => price(b) - price(a) || ORDER.get(a.id) - ORDER.get(b.id));
+    return list.sort((a, b) => (b.hit ? 1 : 0) - (a.hit ? 1 : 0) || ORDER.get(a.id) - ORDER.get(b.id));
+  }
+
+  /* вкладки категорий — счётчик учитывает выбранную цену */
   const tabsBox = $('#tabs');
-  let active = 'all';
+  tabsBox.innerHTML = CATEGORIES.map(c =>
+    '<button class="tab" type="button" role="tab" data-cat="' + c.id + '" aria-selected="false">' +
+      c.name + '<span class="tab__n"></span>' +
+    '</button>').join('');
 
-  const countIn = id => id === 'all' ? PRODUCTS.length : PRODUCTS.filter(p => p.cat === id).length;
+  /* пресеты цены */
+  const pricesBox = $('#prices');
+  pricesBox.innerHTML = PRICES.map(r =>
+    '<button class="pchip" type="button" data-price="' + r.id + '" aria-pressed="false">' + r.label + '</button>').join('');
 
-  tabsBox.innerHTML = CATEGORIES
-    .filter(c => c.id === 'all' || countIn(c.id) > 0)
-    .map(c =>
-      '<button class="tab" type="button" role="tab" data-cat="' + c.id + '" aria-selected="' + (c.id === 'all') + '">' +
-        c.name + '<span class="tab__n">' + countIn(c.id) + '</span>' +
-      '</button>'
-    ).join('');
+  const sortSel = $('#sort');
+
+  function syncControls() {
+    $$('.tab', tabsBox).forEach(t => {
+      const c = t.dataset.cat;
+      t.setAttribute('aria-selected', String(c === f.cat));
+      const n = PRODUCTS.filter(p => (c === 'all' || p.cat === c) && inPrice(p, f.price)).length;
+      $('.tab__n', t).textContent = n;
+      t.classList.toggle('is-empty', n === 0);
+    });
+    $$('.pchip', pricesBox).forEach(b => b.setAttribute('aria-pressed', String(b.dataset.price === f.price)));
+    sortSel.value = f.sort;
+    $('#catTitle').textContent = f.cat === 'all' ? 'Все торты' : catName(f.cat);
+  }
+
+  function update(scroll) {
+    saveFilters();
+    syncControls();
+    render();
+    if (scroll) {
+      // фильтрация на месте: если каталог ушёл выше экрана — мягко подводим к нему
+      const top = $('#catalog').getBoundingClientRect().top;
+      if (top < 0) window.scrollTo({ top: $('#catalog').offsetTop - 150, behavior: reduced() ? 'auto' : 'smooth' });
+    }
+  }
 
   tabsBox.addEventListener('click', e => {
     const tab = e.target.closest('.tab');
-    if (!tab) return;
-    select(tab.dataset.cat);
+    if (!tab || tab.dataset.cat === f.cat) return;
+    f.cat = tab.dataset.cat;
+    update(true);
   });
-
   tabsBox.addEventListener('keydown', e => {
     if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
     const tabs = $$('.tab', tabsBox);
     const i = tabs.indexOf(document.activeElement);
     if (i < 0) return;
     const next = tabs[(i + (e.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length];
-    next.focus(); select(next.dataset.cat);
+    next.focus();
+    f.cat = next.dataset.cat;
+    update(true);
     e.preventDefault();
   });
-
-  function select(cat) {
-    if (cat === active) return;
-    active = cat;
-    $$('.tab', tabsBox).forEach(t => t.setAttribute('aria-selected', String(t.dataset.cat === cat)));
-    $('#catTitle').textContent = cat === 'all' ? 'Все торты' : catName(cat);
-    render();
-    // фильтрация без перехода: мягко подводим к сетке, если каталог ушёл выше
-    const top = $('#catalog').getBoundingClientRect().top;
-    if (top < 0) window.scrollTo({ top: $('#catalog').offsetTop - 110, behavior: 'smooth' });
-  }
+  pricesBox.addEventListener('click', e => {
+    const b = e.target.closest('.pchip');
+    if (!b || b.dataset.price === f.price) return;
+    f.price = b.dataset.price;
+    update(true);
+  });
+  sortSel.addEventListener('change', () => { f.sort = sortSel.value; update(false); });
+  $('#resetFilters').addEventListener('click', () => { f.cat = 'all'; f.price = 'any'; update(false); });
 
   /* ───────────────────────── каталог ───────────────────────── */
   const grid = $('#grid');
   const emptyMsg = $('#empty');
 
-  function render() {
-    const list = active === 'all' ? PRODUCTS : PRODUCTS.filter(p => p.cat === active);
-
-    grid.innerHTML = list.map((p, i) =>
-      '<button class="card" type="button" data-id="' + p.id + '" style="animation-delay:' + Math.min(i * 35, 320) + 'ms">' +
-        placeholder(p) +
-        '<span class="card__tag">' + catName(p.cat) + '</span>' +
-        (p.hit ? '<span class="card__hit">хит</span>' : '') +
-        '<span class="card__body">' +
-          '<span class="card__name">' + p.name + '</span>' +
-          '<span class="card__desc">' + p.desc + '</span>' +
-          '<span class="card__foot">' +
-            '<span class="card__price">' + money(price(p)) + '<span>' + money(p.perKg) + ' / кг</span></span>' +
-            '<span class="card__weight">' + kg(p.weight) + '</span>' +
-          '</span>' +
-          '<span class="card__more">Подробнее и расчёт →</span>' +
+  function createCard(p) {
+    const el = document.createElement('button');
+    el.className = 'card';
+    el.type = 'button';
+    el.dataset.id = p.id;
+    el.innerHTML =
+      placeholder(p) +
+      '<span class="card__tag">' + catName(p.cat) + '</span>' +
+      (p.hit ? '<span class="card__hit">хит</span>' : '') +
+      '<span class="card__body">' +
+        '<span class="card__name">' + p.name + '</span>' +
+        '<span class="card__desc">' + p.desc + '</span>' +
+        '<span class="card__foot">' +
+          '<span class="card__price">' + money(price(p)) + '<span>' + money(p.perKg) + ' / кг</span></span>' +
+          '<span class="card__weight">' + kg(p.weight) + '</span>' +
         '</span>' +
-      '</button>'
-    ).join('');
-
-    emptyMsg.hidden = list.length > 0;
-    $('#count').textContent = list.length + ' ' + plural(list.length, ['позиция', 'позиции', 'позиций']);
-    if (canTilt()) $$('.card', grid).forEach(bindTilt);
+        '<span class="card__more">Подробнее и расчёт →</span>' +
+      '</span>';
+    if (canTilt()) bindTilt(el);
+    return el;
   }
 
-  function plural(n, forms) {
-    const a = Math.abs(n) % 100, b = a % 10;
-    if (a > 10 && a < 20) return forms[2];
-    if (b > 1 && b < 5) return forms[1];
-    if (b === 1) return forms[0];
-    return forms[2];
+  /* FLIP: запоминаем старые позиции, перестраиваем DOM, проигрываем сдвиг */
+  function render() {
+    const list = visible();
+    const animate = !reduced();
+
+    const old = new Map();
+    $$('.card', grid).forEach(el => {
+      if (animate) old.set(el.dataset.id, el.getBoundingClientRect());
+      el.getAnimations().forEach(a => a.cancel());
+      old.has(el.dataset.id) || old.set(el.dataset.id, null);
+    });
+    const byId = new Map($$('.card', grid).map(el => [el.dataset.id, el]));
+
+    const els = list.map(p => byId.get(p.id) || createCard(p));
+    grid.replaceChildren.apply(grid, els);
+
+    if (animate) {
+      let fresh = 0;
+      els.forEach(el => {
+        const first = old.get(el.dataset.id);
+        if (first) {
+          const last = el.getBoundingClientRect();
+          const dx = first.left - last.left, dy = first.top - last.top;
+          if (Math.abs(dx) > 0.5 || Math.abs(dy) > 0.5) {
+            el.animate([{ transform: 'translate(' + dx + 'px,' + dy + 'px)' }, { transform: 'none' }],
+                       { duration: 420, easing: EASE });
+          }
+        } else {
+          el.animate([{ opacity: 0, transform: 'scale(.96)' }, { opacity: 1, transform: 'none' }],
+                     { duration: 320, delay: Math.min(fresh++ * 35, 280), easing: EASE, fill: 'backwards' });
+        }
+      });
+    }
+
+    emptyMsg.hidden = list.length > 0;
+    $('#count').textContent = 'Найдено: ' + list.length + ' ' + plural(list.length, ['торт', 'торта', 'тортов']);
   }
 
   /* ───────────────── переключатель колонок 2/3/4 ───────────────── */
@@ -135,18 +265,28 @@
   function applyCols() {
     grid.style.setProperty('--cols', String(Math.min(chosenCols, maxCols())));
   }
-  colBtns.forEach(b => b.addEventListener('click', () => {
-    chosenCols = Number(b.dataset.cols);
-    colBtns.forEach(x => x.setAttribute('aria-pressed', String(x === b)));
-    applyCols();
-  }));
+  /* смена колонок — через View Transitions: карточки плавно меняют размер и место */
+  function setCols(n) {
+    chosenCols = n;
+    colBtns.forEach(x => x.setAttribute('aria-pressed', String(Number(x.dataset.cols) === n)));
+    if (reduced() || !document.startViewTransition) { applyCols(); return; }
+    const cards = $$('.card', grid);
+    cards.forEach(el => { el.style.viewTransitionName = 'card-' + el.dataset.id; });
+    html.classList.add('vt-cols');
+    const t = document.startViewTransition(applyCols);
+    t.finished.finally(() => {
+      cards.forEach(el => { el.style.viewTransitionName = ''; });
+      html.classList.remove('vt-cols');
+    });
+  }
+  colBtns.forEach(b => b.addEventListener('click', () => setCols(Number(b.dataset.cols))));
   window.addEventListener('resize', applyCols);
 
   /* ───────────────── 3D-наклон карточек (десктоп) ───────────────── */
   function canTilt() {
     return window.matchMedia('(hover:hover) and (pointer:fine)').matches
         && window.innerWidth >= 900
-        && !window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        && !reduced();
   }
 
   function bindTilt(card) {
@@ -171,7 +311,7 @@
 
   /* ───────────────────────── модалка ───────────────────────── */
   const modal = $('#modal');
-  let current = null, lastFocus = null;
+  let current = null, lastFocus = null, closingT = 0;
 
   grid.addEventListener('click', e => {
     const card = e.target.closest('.card');
@@ -191,26 +331,32 @@
     $('#mPrice').textContent = money(price(p));
     $('#mWeight').textContent = kg(p.weight);
     $('#mPerKg').textContent = money(p.perKg);
-    $('#mComp').innerHTML = p.comp.map(c => '<li>' + c + '</li>').join('');
     $('#mMeta').innerHTML = [
       ['Минимальный вес', kg(p.minWeight)],
       ['Ярусов', String(p.tiers)],
-      ['Срок заказа', p.lead],
-      ['Хранение', p.keeps],
       ['Декор', p.decor]
     ].map(r => '<li><span>' + r[0] + '</span><b>' + r[1] + '</b></li>').join('');
 
     calc();
+    clearTimeout(closingT);
+    modal.classList.remove('is-closing');
     modal.hidden = false;
     document.body.classList.add('is-locked');
     $('.modal__x').focus();
   }
 
   function close() {
-    modal.hidden = true;
-    document.body.classList.remove('is-locked');
-    current = null;
-    if (lastFocus) lastFocus.focus();
+    if (modal.hidden || modal.classList.contains('is-closing')) return;
+    const finish = () => {
+      modal.hidden = true;
+      modal.classList.remove('is-closing');
+      document.body.classList.remove('is-locked');
+      current = null;
+      if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
+    };
+    if (reduced()) { finish(); return; }
+    modal.classList.add('is-closing');                 // fade + scale до 0.96, потом прячем
+    closingT = setTimeout(finish, 190);
   }
 
   modal.addEventListener('click', e => { if (e.target.closest('[data-close]')) close(); });
@@ -219,14 +365,21 @@
   /* ───────────────── калькулятор «сколько гостей» ───────────────── */
   const guests = $('#cGuests'), portion = $('#cPortion'), out = $('#cOut');
 
+  /* формула веса — общая с ИИ-помощником */
+  function rawWeight(guestsN, per) {
+    const g = Math.max(1, Math.min(300, Number(guestsN) || 1));
+    return Math.ceil((g * (Number(per) || 170) / 1000) / 0.25) * 0.25;   // округление вверх до 0,25 кг
+  }
+  function weightForGuests(p, guestsN, per) {
+    return Math.max(rawWeight(guestsN, per), p.minWeight);
+  }
+
   function calc() {
     if (!current) return;
-    const g = Math.max(1, Math.min(300, Number(guests.value) || 1));
     const per = Number(portion.value);
-
-    let w = Math.ceil((g * per / 1000) / 0.25) * 0.25;   // округление вверх до 0,25 кг
-    let note = '';
-    if (w < current.minWeight) { w = current.minWeight; note = 'минимальный вес торта'; }
+    const raw = rawWeight(guests.value, per);
+    const w = Math.max(raw, current.minWeight);
+    const note = w > raw ? 'минимальный вес торта' : '';
 
     const tiers = w >= 7 ? 3 : w >= 4 ? 2 : 1;
     const servings = Math.floor(w * 1000 / per);
@@ -252,9 +405,28 @@
     toastT = setTimeout(() => toast.classList.remove('is-on'), 2600);
   });
 
+  // факты в герое — считаются из каталога, а не придумываются
+  $('#fCount').textContent = PRODUCTS.length;
+  $('#fCats').textContent = new Set(PRODUCTS.map(p => p.cat)).size;
+  $('#fMin').textContent = money(Math.min.apply(null, PRODUCTS.map(price)));
+
   // декоративная карточка в герое
   $('#heroArt').innerHTML = placeholder(PRODUCTS.find(p => p.id === 'ivory'), true);
 
+  /* ─────────── публичный API: им пользуется js/assistant.js ─────────── */
+  window.MK = {
+    products: PRODUCTS,
+    catName: catName,
+    placeholder: placeholder,
+    money: money,
+    kg: kg,
+    price: price,
+    plural: plural,
+    weightForGuests: weightForGuests,
+    openProduct: function (id, trigger) { open(id, trigger || null); }
+  };
+
   applyCols();
+  syncControls();
   render();
 })();

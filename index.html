@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="css/styles.css?v=6">
+<link rel="stylesheet" href="css/assistant.css">
 <script>
   /* тема до первой отрисовки — чтобы не было вспышки */
   (function () {
@@ -22,6 +23,9 @@
 <body id="top">
 
 <a class="skip" href="#catalog">Перейти к каталогу</a>
+
+<!-- ───────────────── ПЛАШКА ДЕМО ───────────────── -->
+<div class="demobar" role="note">Демонстрационный сайт. Все товары, цены и контакты — условные примеры.</div>
 
 <!-- ───────────────── ШАПКА ───────────────── -->
 <header class="hdr">
@@ -44,6 +48,7 @@
       <a href="#catalog">Каталог</a>
       <a href="#how">Как заказать</a>
       <a href="#delivery">Доставка</a>
+      <a href="#find">Как нас найти</a>
       <a href="#contacts">Контакты</a>
     </nav>
 
@@ -69,6 +74,17 @@
 <div class="tabsbar" id="tabsbar">
   <div class="wrap tabsbar__in">
     <div class="tabs" id="tabs" role="tablist" aria-label="Категории тортов"></div>
+    <div class="filters">
+      <div class="prices" id="prices" role="group" aria-label="Цена"></div>
+      <label class="sort">
+        <span class="sort__lbl">Сортировка</span>
+        <select id="sort">
+          <option value="popular">Сначала популярные</option>
+          <option value="asc">По возрастанию цены</option>
+          <option value="desc">По убыванию цены</option>
+        </select>
+      </label>
+    </div>
   </div>
 </div>
 
@@ -76,7 +92,7 @@
 <section class="hero">
   <div class="wrap hero__in">
     <div class="hero__copy">
-      <p class="eyebrow">Домашняя кондитерская · демо-версия сайта</p>
+      <p class="eyebrow">Кондитерская · демо-версия сайта</p>
       <h1 class="hero__title">Торты, которые <em>помнят</em> после праздника</h1>
       <p class="hero__lead">
         Собираем торт под ваш повод: вкус, вес и декор выбираете вы.
@@ -88,9 +104,9 @@
         <button class="btn btn--lg btn--ghost js-demo" type="button">Рассчитать торт</button>
       </div>
       <dl class="facts">
-        <div><dt>от 48 ч</dt><dd>срок на заказ</dd></div>
-        <div><dt>от 1,5 кг</dt><dd>минимальный вес</dd></div>
-        <div><dt>14 вкусов</dt><dd>в постоянном меню</dd></div>
+        <div><dt id="fCount">—</dt><dd>позиций в демо-каталоге</dd></div>
+        <div><dt id="fCats">—</dt><dd>категорий</dd></div>
+        <div><dt id="fMin">—</dt><dd>самая доступная позиция</dd></div>
       </dl>
     </div>
     <div class="hero__art" aria-hidden="true">
@@ -123,7 +139,10 @@
 
     <div class="grid" id="grid"></div>
 
-    <p class="empty" id="empty" hidden>В этой категории пока ничего нет — выберите другую вкладку.</p>
+    <div class="empty" id="empty" hidden>
+      <p>По этим условиям ничего нет.</p>
+      <button class="btn btn--ghost" type="button" id="resetFilters">Сбросить фильтры</button>
+    </div>
   </div>
 </section>
 
@@ -139,9 +158,9 @@
     </header>
     <ol class="steps">
       <li><span class="steps__n">01</span><h3>Выбираете торт</h3><p>Или описываете идею своими словами: повод, вкусы, пожелания по декору.</p></li>
-      <li><span class="steps__n">02</span><h3>Считаем вес и цену</h3><p>Подбираем вес под число гостей, согласовываем состав и итоговую стоимость.</p></li>
-      <li><span class="steps__n">03</span><h3>Готовим</h3><p>Собираем торт за 1–2 дня до события, чтобы крем успел стабилизироваться.</p></li>
-      <li><span class="steps__n">04</span><h3>Отдаём или привозим</h3><p>Самовывоз в удобное время или доставка в термоупаковке к нужному часу.</p></li>
+      <li><span class="steps__n">02</span><h3>Считаем вес и цену</h3><p>Подбираем вес под число гостей, согласовываем итоговую стоимость.</p></li>
+      <li><span class="steps__n">03</span><h3>Готовим</h3><p>Собираем торт к согласованной дате.</p></li>
+      <li><span class="steps__n">04</span><h3>Отдаём или привозим</h3><p>Самовывоз или доставка — по условиям, которые укажет владелец.</p></li>
     </ol>
   </div>
 </section>
@@ -151,23 +170,49 @@
   <div class="wrap two-col">
     <div>
       <p class="eyebrow">Доставка и оплата</p>
-      <h2 class="sec-title">Привезём к нужному часу</h2>
+      <h2 class="sec-title">Доставка и самовывоз</h2>
       <p class="sec-lead">
-        Это демонстрационная страница, поэтому условия ниже — пример оформления блока.
-        Реальные цифры подставляются под конкретный город.
+        Условия заполняет владелец кондитерской. Ниже — только структура блока.
       </p>
       <ul class="ticks">
-        <li>Самовывоз из кондитерской — бесплатно</li>
-        <li>Доставка по городу — фиксированная стоимость</li>
-        <li>За город — по километражу</li>
-        <li>Оплата: перевод, карта, наличные при получении</li>
+        <li>Самовывоз: <span class="ph-text">______</span></li>
+        <li>Доставка по городу: <span class="ph-text">______ ₽</span></li>
+        <li>За город: <span class="ph-text">______</span></li>
+        <li>Способы оплаты: <span class="ph-text">______</span></li>
       </ul>
     </div>
     <div class="notecard">
-      <h3>Как сохранить торт</h3>
-      <p>Храните в холодильнике при +2…+6 °C, достаньте за 20–30 минут до подачи —
-         так крем станет мягче, а вкус раскроется полнее.</p>
-      <p class="notecard__small">Срок хранения — 48 часов с момента получения.</p>
+      <h3>Условия хранения</h3>
+      <p class="ph-text">Заполняется владельцем.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────── КАК НАС НАЙТИ (заготовка под карту) ───────────────── -->
+<section class="section section--alt" id="find">
+  <div class="wrap">
+    <header class="sec-head">
+      <div>
+        <p class="eyebrow">Адрес</p>
+        <h2 class="sec-title">Как нас найти</h2>
+      </div>
+    </header>
+    <div class="find">
+      <div class="find__map" role="img" aria-label="Заглушка карты">
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M6 12l12-5 12 5 12-5v29l-12 5-12-5-12 5V12Z"/>
+          <path d="M18 7v29M30 12v29"/>
+        </svg>
+        <p>Здесь будет карта с вашим адресом</p>
+      </div>
+      <div class="find__side">
+        <p class="find__addr">г. ______, ул. ______</p>
+        <div class="find__btns">
+          <button class="btn btn--ghost" type="button" disabled aria-disabled="true">Построить маршрут</button>
+          <button class="btn btn--ghost" type="button" disabled aria-disabled="true">Самовывоз</button>
+        </div>
+        <p class="find__note">Карта подключается после указания реального адреса</p>
+      </div>
     </div>
   </div>
 </section>
@@ -179,23 +224,22 @@
       <a class="brand brand--foot" href="#top">
         <span class="brand__txt">Моя<em>кондитерская</em></span>
       </a>
-      <p class="footer__note">Демо-сайт. Названия, цены и условия — placeholder-данные.</p>
+      <p class="footer__note">Демонстрационный сайт: товары, цены и контакты — условные.</p>
     </div>
     <div class="footer__cols">
       <div>
         <h4>Контакты</h4>
-        <p>+7 000 000-00-00</p>
-        <p>hello@example.com</p>
+        <p>+7 (___) ___-__-__</p>
+        <p>e-mail: ______</p>
       </div>
       <div>
         <h4>Режим работы</h4>
-        <p>Пн–Сб, 10:00–20:00</p>
-        <p>Вс — выходной</p>
+        <p>__:__ — __:__</p>
+        <p>Выходные: ______</p>
       </div>
       <div>
         <h4>Адрес</h4>
-        <p>ул. Примерная, 1</p>
-        <p>Выдача заказов по записи</p>
+        <p>г. ______, ул. ______</p>
       </div>
     </div>
   </div>
@@ -223,11 +267,12 @@
           <div><span class="pricerow__k">Вес</span><strong id="mWeight"></strong></div>
           <div><span class="pricerow__k">За кг</span><strong id="mPerKg"></strong></div>
         </div>
+        <p class="pricenote">Цена ориентировочная</p>
 
         <div class="modal__cols">
           <div>
             <h4 class="h-mini">Состав</h4>
-            <ul class="dots" id="mComp"></ul>
+            <p class="ph-text">Состав заполняется владельцем</p>
           </div>
           <div>
             <h4 class="h-mini">Детали</h4>
@@ -269,5 +314,6 @@
 
 <script src="js/data.js?v=2"></script>
 <script src="js/app.js?v=2"></script>
+<script src="js/assistant.js"></script>
 </body>
 </html>
