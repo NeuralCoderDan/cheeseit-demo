@@ -196,7 +196,7 @@ html[data-theme="light"] .fab--ai::after { border-color: rgba(255, 255, 255, .9)
   scrollbar-width: thin;
 }
 
-.msg { max-width: 86%; font-size: .9rem; line-height: 1.55; }
+.msg { max-width: 86%; font-size: .9rem; line-height: 1.55; overflow-wrap: anywhere; }   /* длинное «слово» не растягивает чат */
 .msg--bot {
   align-self: flex-start;
   background: var(--surface-2); border: 1px solid var(--border);
@@ -290,5 +290,6 @@ html[data-theme="light"] .fab--ai::after { border-color: rgba(255, 255, 255, .9)
   .fab--ai.is-pulse::before { animation: none; display: none; }
   .ai-hint { transition: none !important; transform: none !important; }
   .chat, .fab, .rec, .chip-btn { animation: none !important; transition: none !important; }
+  .typing span { animation: none !important; opacity: .7; transform: none; }   /* «думает» — статичные точки */
   .msg.is-streaming::after { animation: none; }
 }

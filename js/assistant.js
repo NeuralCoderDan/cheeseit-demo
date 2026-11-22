@@ -292,6 +292,7 @@
     contacts:    /адрес|телефон|позвон|номер|доставк|самовывоз|где вы|где наход|как добрат|как проехать|контакт|режим работ|часы работ|во сколько|ватсап|whatsapp|телеграм|telegram|почт|e-?mail/,
     composition: /состав|аллерг|глютен|лактоз|орех|арахис|без сахара|сахарозам|калори|ккал|срок годност|хран[ия]т|хранени|веган|постн|халяль|кошер/,
     discount:    /скидк|акци|промокод|бонус|распродаж|уступ/,
+    lead:        /успеете|успеет|успеешь|за сколько дн|сколько дней|срок изготов|срок приготов|к субботе|к воскресень|к пятниц|к понедельн|к завтр|на завтра|срочн|предоплат|отмен|вернуть деньг|возврат/,
     price:       /сколько стоит|сколько стоят|почем|какие цены|цен[аыу]|стоимост|ценник|по деньгам/,
     choose:      /какой торт|подбер|подобр|выбрат|выбери|посовет|помоги|что взять|хочу торт|нужен торт/,
     hello:       /^(привет|здравств|добрый|доброе|хай|hello|hi)/,
@@ -484,16 +485,43 @@
   let state = fresh();
   let busy = false;
   let chain = Promise.resolve();
+  // очередь: следующее действие ждёт предыдущее; сбой одного не останавливает остальные
   const enqueue = fn => (chain = chain.then(fn, fn).catch(err => console.error('[assistant]', err)));
 
   const save = () => { try { localStorage.setItem(LS_KEY, JSON.stringify(state)); } catch (e) {} };
+  /* 8 — историю проверяем целиком; что-то не так — молча начинаем новый диалог */
+  const OLD_KEYS = ['mk-chat', 'mk-chat-v1', 'mk-chat-v2'];
+  const isStr = v => typeof v === 'string';
+  function validEntry(e) {
+    if (!e || typeof e !== 'object') return false;
+    if (e.r === 'bot' || e.r === 'me') return isStr(e.t);
+    if (e.r === 'chips') return Array.isArray(e.items) && e.items.every(c => Array.isArray(c) && isStr(c[0]) && isStr(c[1]));
+    if (e.r === 'recs') return Array.isArray(e.items) && e.items.every(i => i && isStr(i.id) && ALL.some(p => p.id === i.id));
+    return false;
+  }
   function load() {
+    OLD_KEYS.forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
     try {
       const d = JSON.parse(localStorage.getItem(LS_KEY) || 'null');
-      if (!d || !Array.isArray(d.entries) || !d.entries.length || !d.f) return false;
-      state = d;
+      if (!d || typeof d !== 'object' || !Array.isArray(d.entries) || !d.entries.length) return false;
+      if (!d.entries.every(validEntry) || !d.f || typeof d.f !== 'object' || !isStr(d.ask)) throw new Error('история не читается');
+      const f = Object.assign(freshFacts(), d.f);
+      if (!Array.isArray(f.flavors)) f.flavors = [];
+      state = {
+        ask: QUESTIONS[d.ask] || d.ask === 'start' ? d.ask : 'start',
+        asked: d.asked && typeof d.asked === 'object' ? d.asked : {},
+        misses: Number(d.misses) || 0,
+        pending: d.pending && typeof d.pending === 'object' ? d.pending : null,
+        f: f,
+        entries: d.entries
+      };
       return true;
-    } catch (e) { return false; }
+    } catch (e) {
+      console.error('[assistant] старая история не читается — начинаем заново', e);
+      try { localStorage.removeItem(LS_KEY); } catch (e2) {}
+      state = fresh();
+      return false;
+    }
   }
 
   /* ───────────────────────── отрисовка ───────────────────────── */
@@ -541,23 +569,74 @@
     return null;
   }
 
+  /* 7 — сообщение не длиннее 500 символов: длинное обрезаем, а не падаем */
+  const MAX_LEN = 500;
+  function clip(raw) {
+    const t = String(raw == null ? '' : raw).replace(/\s+/g, ' ').trim();
+    if (t.length <= MAX_LEN) return t;
+    const cut = t.slice(0, MAX_LEN);
+    return cut.slice(0, Math.max(cut.lastIndexOf(' '), MAX_LEN - 40)).trim() + '…';
+  }
+
+  /* ── индикатор «думает»: три точки в пузырьке, сразу после сообщения человека ── */
+  let thinkingEl = null;
+  function showThinking() {
+    if (thinkingEl && thinkingEl.isConnected) { log.append(thinkingEl); toBottom(); return; }
+    thinkingEl = document.createElement('div');
+    thinkingEl.className = 'typing';
+    thinkingEl.setAttribute('role', 'status');
+    thinkingEl.setAttribute('aria-label', 'Помощник печатает');
+    thinkingEl.innerHTML = '<span></span><span></span><span></span>';
+    log.append(thinkingEl); toBottom();
+  }
+  function hideThinking() { if (thinkingEl) { thinkingEl.remove(); thinkingEl = null; } }
+
+  /* ── пользователь никогда не видит технических слов: такой текст — это сбой ── */
+  const TECH = /\b(undefined|null|NaN|error|exception|TypeError|ReferenceError|stack)\b|ошибк|не удалось выполнить|не число|∞|\.js\b|:\d+:\d+/i;
+  function guard(text) {
+    if (typeof text !== 'string' || TECH.test(text.replace(/[\s\u00a0\u202f]+/g, ' '))) {   // Intl ставит неразрывные пробелы
+      console.error('[assistant] в ответ попал технический текст:', text);
+      throw new Error('assistant: unsafe text');                  // поймает run() и ответит по-человечески
+    }
+  }
+
+  /* после таймаута ответы «зависшего» действия не показываем (force — системные реплики) */
+  let zombie = false;
+  const markStarted = () => { if (active) active.started = true; };
+
   /* 2.2 — никогда не повторяем предыдущую реплику дословно */
-  async function say(text) {
+  async function say(text, force) {
+    if (zombie && !force) return;
     if (!text || text === lastBot()) return;
+    guard(text);
     busy = true;
-    const t = document.createElement('div');
-    t.className = 'typing';
-    t.innerHTML = '<span></span><span></span><span></span>';
-    log.append(t); toBottom();
+    showThinking();
     await wait(reduced() ? 40 : 360);
-    t.remove();
+    if (zombie && !force) { busy = false; return; }
+    hideThinking();                                     // точки исчезают с началом печати
+    markStarted();
     push({ r: 'bot', t: text });
     await bubble('bot', text, true);
     busy = false;
   }
-  function me(text) { closeChips(); push({ r: 'me', t: text }); bubble('me', text, false); }
-  function chips(items) { if (!items.length) return; push({ r: 'chips', items: items, done: false }); chipsRow(items, false); }
-  function recs(items, title) { const e = { r: 'recs', items: items, title: title || '' }; push(e); recsRow(e); }
+  function me(text, echo) {
+    if (zombie) return;
+    closeChips();
+    if (echo !== false) { push({ r: 'me', t: text }); bubble('me', text, false); }
+    showThinking();                                     // «думает» — сразу после отправки
+  }
+  function chips(items, force) {
+    if ((zombie && !force) || !items.length) return;
+    items.forEach(c => guard(c[0]));
+    markStarted();
+    push({ r: 'chips', items: items, done: false }); chipsRow(items, false);
+  }
+  function recs(items, title) {
+    if (zombie) return;
+    items.forEach(it => { if (it.why) guard(it.why); });
+    markStarted();
+    const e = { r: 'recs', items: items, title: title || '' }; push(e); recsRow(e);
+  }
   function closeChips() {
     for (let i = state.entries.length - 1; i >= 0; i--) {
       if (state.entries[i].r === 'chips') { state.entries[i].done = true; break; }
@@ -941,18 +1020,51 @@
   }
 
   /* 2.2 / 2.3 — не поняли: коротко, без повтора; второй раз подряд — кнопками */
-  async function miss(offTopic) {
+  /* реплика из вариантов — первая, что не совпадает с предыдущей: не молчим и не повторяемся дословно */
+  const sayOneOf = list => say(list.find(t => t !== lastBot()) || list[0] + ' ');
+  const idle = () => /^(start|browse|done)$/.test(state.ask);
+  const BAKER = 'Про это лучше спросить кондитера — я помогаю с выбором торта.';
+
+  /* 6 — не знаем ответа: честно и с выходом */
+  async function toBaker(topic) {
+    state.misses = 0;
+    const head = topic ? 'Про ' + topic + ' лучше спросить кондитера — я помогаю с выбором торта.' : BAKER;
+    if (idle()) {
+      await sayOneOf([head + ' Подобрать?', head + ' Подобрать вам торт?']);
+      return chips([['Подобрать торт', 'choose'], ['Сколько стоит', 'price']]);
+    }
+    await sayOneOf([head + ' Продолжим?', head + ' Вернёмся к подбору?']);
+    return reask();
+  }
+
+  /* непонятное: «не уловил» — только один раз подряд, дальше кнопки и честный выход */
+  async function miss() {
     state.misses++;
     save();
-    if (state.misses === 1) await say(offTopic ? 'Я помогаю только с выбором торта — с остальным, к сожалению, не подскажу.' : 'Не уловил — уточните, пожалуйста.');
-    else if (state.misses === 2) await say('Давайте кнопками, так быстрее.');
-    chips(chipsFor(state.ask));
+    if (state.misses === 1) await sayOneOf(['Не уловил — уточните, пожалуйста.', 'Не совсем понял — переформулируете?']);
+    else if (state.misses === 2) await sayOneOf(['Давайте кнопками, так быстрее.', 'Проще выбрать кнопкой — так быстрее.']);
+    else await sayOneOf([BAKER + ' Нажмите кнопку — так быстрее.', 'Я лучше всего понимаю про торты: гости, вкус, бюджет. Выберите кнопку.']);
+    chips(idle() ? [['Подобрать торт', 'choose'], ['Сколько стоит', 'price']] : chipsFor(state.ask));
   }
+
+  /* 7 — странные сообщения */
+  const EMOJI_ONLY = s => /\p{Extended_Pictographic}/u.test(s) && !/[\p{L}\p{N}]/u.test(s);
+  function gibberish(t) {
+    const flat = t.replace(/\s+/g, '');
+    if (!/[a-zа-яё]/i.test(flat)) return true;                               // только знаки и цифры без смысла
+    if (/(.)\1{3,}/.test(flat)) return true;                                // «аааааа», «??????»
+    const words = t.split(/\s+/).filter(w => /[a-zа-яё]/i.test(w));
+    const real = words.filter(w => /[аеёиоуыэюяaeiouy]/i.test(w) && !/[бвгджзйклмнпрстфхцчшщbcdfghjklmnpqrstvwxz]{5,}/i.test(w));
+    return real.length === 0;
+  }
+  /* вопрос «не про торты»: осмысленная фраза (несколько слов или вопрос), а не набор букв */
+  const offTopicQuestion = (t, raw) => !gibberish(t) && !INTENT.domain.test(t) &&
+                                        (/\?/.test(raw) || t.split(/\s+/).filter(Boolean).length >= 2);
 
   /* ═════════════════════════ ВВОД ═════════════════════════ */
 
-  async function onChip(v, label) {
-    me(label);
+  async function onChip(v, label, echo) {
+    me(label, echo);
     state.misses = 0;
     const f = F();
     const [kind, arg] = v.indexOf(':') > -1 ? v.split(':') : [v, ''];
@@ -1010,18 +1122,25 @@
     return next();
   }
 
-  async function onText(raw) {
-    const text = raw.trim();
+  async function onText(raw, echo) {
+    const text = clip(raw);
     if (!text) return;
-    me(text);
+    me(text, echo);
     const t = norm(text), st = state.ask, f = F();
+
+    if (EMOJI_ONLY(text)) {
+      await sayOneOf(['Смайлики я пока не понимаю — напишите словами или выберите кнопку.',
+                      'Красиво! Но лучше словами — или выберите кнопку.']);
+      return chips(idle() ? [['Подобрать торт', 'choose'], ['Сколько стоит', 'price']] : chipsFor(state.ask));
+    }
 
     if (INTENT.restart.test(t)) return restart();
 
     // честные ответы на «не про выбор»
     if (INTENT.contacts.test(t))    { state.misses = 0; await say('Это демо-сайт, реальные контакты владелец заполнит сам.'); return reask(); }
-    if (INTENT.composition.test(t)) { state.misses = 0; await say('Состав и аллергены заполняет владелец — я их не знаю и гадать не буду.'); return reask(); }
-    if (INTENT.discount.test(t))    { state.misses = 0; await say('Про скидки и акции ничего сказать не могу — это решает владелец. Я помогаю с выбором торта.'); return reask(); }
+    if (INTENT.composition.test(t)) return toBaker('состав, аллергены и хранение');
+    if (INTENT.discount.test(t))    return toBaker('скидки и акции');
+    if (INTENT.lead.test(t))        return toBaker('сроки, предоплату и отмену');
 
     const x = extract(text, st);
     const c = {};             // что нового поняли — для строки «Понял: …»
@@ -1111,7 +1230,112 @@
     }
     if (INTENT.thanks.test(t)) { state.misses = 0; await say('Пожалуйста! Если что-то ещё — пишите.'); return chips(chipsFor(state.ask)); }
     if (INTENT.hello.test(t))  { state.misses = 0; await say('Здравствуйте! Помочь выбрать торт?'); return chips(chipsFor(state.ask)); }
-    return miss(!INTENT.domain.test(t) && /^(start|browse|done)$/.test(st));
+    if (offTopicQuestion(t, text)) return toBaker();
+    return miss();
+  }
+
+  /* ═════════════════════════ НАДЁЖНОСТЬ ═════════════════════════
+     Каждое действие человека идёт через run():
+     — любой сбой ловится, в чат идёт обычная фраза и кнопки, подробности — в console.error;
+     — если ответ не начался за 8 с — «Что-то долго. Попробуем ещё раз?» + «Повторить»;
+     — в finally всегда снимаются «думает» и блокировка поля ввода.
+     Таймаут пригодится, когда вместо сценария подключат настоящую модель. */
+  const TIMEOUT_MS = 8000;
+  const TIMED_OUT = {};
+  const hooks = { slow: 0, boom: false };        // только для тестов: задержка и искусственный сбой
+  let active = null, lastAction = null;
+
+  function exec(a) {
+    switch (a.kind) {
+      case 'text':  return onText(a.v, a.echo);
+      case 'chip':  return onChip(a.v, a.label, a.echo);
+      case 'reset': return restart();
+      case 'start': return ask('start');
+      case 'retry':                                    // сообщение человека уже в чате
+        return lastAction ? exec(Object.assign({}, lastAction, { echo: false })) : ask('start');
+    }
+  }
+
+  async function recover() {
+    state.pending = null;
+    state.ask = 'start';
+    save();
+    await say('Что-то я задумался. Давайте проще — что подбираем?', true);
+    chips([['Подобрать торт', 'choose'], ['Сколько стоит', 'price'], ['Начать заново', 'reset']], true);
+  }
+  async function slowReply() {
+    await say('Что-то долго. Попробуем ещё раз?', true);
+    chips([['Повторить', 'retry']], true);
+  }
+  /* запасной вывод, если не сработал даже say() — без него человек остался бы перед пустотой */
+  function lastResort() {
+    try {
+      hideThinking();
+      const el = document.createElement('div');
+      el.className = 'msg msg--bot';
+      el.textContent = 'Что-то я задумался. Давайте проще — что подбираем?';
+      log.append(el);
+      chipsRow([['Подобрать торт', 'choose'], ['Сколько стоит', 'price'], ['Начать заново', 'reset']], false);
+      toBottom();
+    } catch (e) { console.error('[assistant]', e); }
+  }
+
+  function run(action) {
+    const user = action.kind === 'text' || action.kind === 'chip';
+    if (user) lastAction = action;
+    return enqueue(async () => {
+      const cur = active = { started: false, dead: false };
+      zombie = false;
+      input.setAttribute('aria-busy', 'true');
+      let timer = 0;
+      try {
+        // сообщение человека появляется сразу — даже если дальше что-то сломается
+        if (user && action.echo !== false) {
+          const label = action.kind === 'text' ? clip(action.v) : clip(action.label);
+          if (!label) return;                            // пустое и одни пробелы — просто ничего не отправляем
+          me(label, true);
+          action = Object.assign({}, action, { echo: false, v: action.kind === 'text' ? label : action.v });
+          lastAction = action;
+        } else if (action.kind === 'retry') {
+          showThinking();
+        }
+        const work = (async () => {
+          if (hooks.slow) await wait(hooks.slow);         // здесь будет запрос к настоящей модели
+          if (cur.dead) return;                            // время вышло — это действие уже отменено
+          if (hooks.boom) { hooks.boom = false; throw new Error('test: искусственный сбой'); }
+          return exec(action);
+        })();
+        const timeout = new Promise(res => {
+          timer = setTimeout(function check() {
+            if (!cur.started) res(TIMED_OUT);
+            else timer = 0;                              // ответ уже пошёл — ждём его до конца
+          }, TIMEOUT_MS);
+        });
+        const r = await Promise.race([work, timeout]);
+        if (r === TIMED_OUT) {
+          cur.dead = true;                               // отменяем: продолжения не будет
+          zombie = true;                                 // поздний ответ этого действия не покажем
+          work.catch(err => console.error('[assistant] после таймаута:', err));
+          active = null;
+          hideThinking();
+          await slowReply();
+        }
+      } catch (err) {
+        console.error('[assistant]', err);
+        cur.dead = true;
+        active = null;
+        zombie = true;                                   // недоделанный ответ не допечатываем
+        hideThinking();
+        try { await recover(); } catch (e2) { console.error('[assistant]', e2); lastResort(); }
+      } finally {
+        clearTimeout(timer);
+        if (active === cur) active = null;
+        hideThinking();
+        busy = false;
+        input.disabled = false;                          // поле ввода никогда не остаётся заблокированным
+        input.removeAttribute('aria-busy');
+      }
+    });
   }
 
   /* ───────────────────────── события чата ───────────────────────── */
@@ -1119,7 +1343,8 @@
     const chip = e.target.closest('.chip-btn');
     if (chip && !chip.closest('.is-done')) {
       chip.closest('.chips').classList.add('is-done');        // второй клик по этому ряду уже не пройдёт
-      enqueue(() => onChip(chip.dataset.val, chip.textContent));
+      if (chip.dataset.val === 'retry') run({ kind: 'retry' });
+      else run({ kind: 'chip', v: chip.dataset.val, label: chip.textContent, echo: true });
       return;
     }
     const rec = e.target.closest('.rec');
@@ -1134,7 +1359,7 @@
     const v = input.value;
     if (!v.trim()) return;
     input.value = '';
-    enqueue(() => onText(v));             // пока бот печатает — сообщение ждёт своей очереди
+    run({ kind: 'text', v: v, echo: true });   // пока бот печатает — сообщение ждёт своей очереди
   });
 
   function restart() {
@@ -1143,7 +1368,7 @@
     try { localStorage.removeItem(LS_KEY); } catch (err) {}
     return ask('start');
   }
-  $('#mkReset').addEventListener('click', () => enqueue(restart));
+  $('#mkReset').addEventListener('click', () => run({ kind: 'reset' }));
   $('#mkClose').addEventListener('click', () => closeChat());
 
   /* ───────────────────────── открытие / закрытие ───────────────────────── */
@@ -1161,16 +1386,24 @@
     setFan(false);
     if (!started) {
       started = true;
+      let restored = false;
       if (load()) {
-        state.entries.forEach(renderEntry);
-        const last = state.entries[state.entries.length - 1];
-        $$('.chips', log).forEach((row, i, rows) => {
-          if (!(last && last.r === 'chips' && i === rows.length - 1)) row.classList.add('is-done');
-        });
-        toBottom();
-      } else {
-        enqueue(() => ask('start'));
+        try {
+          state.entries.forEach(renderEntry);
+          const last = state.entries[state.entries.length - 1];
+          $$('.chips', log).forEach((row, i, rows) => {
+            if (!(last && last.r === 'chips' && i === rows.length - 1)) row.classList.add('is-done');
+          });
+          toBottom();
+          restored = true;
+        } catch (e) {
+          console.error('[assistant] не удалось показать историю — начинаем заново', e);
+          log.innerHTML = '';
+          state = fresh();
+          try { localStorage.removeItem(LS_KEY); } catch (e2) {}
+        }
       }
+      if (!restored) run({ kind: 'start' });
     }
     if (window.innerWidth > 620) input.focus();
   }
@@ -1292,6 +1525,6 @@
   window.MKChat = {
     streamText: streamText, open: openChat, close: closeChat, reset: restart,
     _t: { extract, parseAmount, tokenize, pickSingle, combos, whyOne, whySlot, sizeNote, option, compare, P_MIN, P_MAX, INTENT,
-          send: onText, chip: onChip, state: () => state }
+          send: onText, chip: onChip, state: () => state, run: run, hooks: hooks, idle: () => chain }
   };
 })();
