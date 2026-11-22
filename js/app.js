@@ -578,6 +578,7 @@
     $('.wcalc', modal).classList.toggle('is-single', opts.length < 2);
     $('#wLbl').textContent = p.cat === 'cupcakes' ? 'Вес набора' : 'Вес торта';
     guests.value = '';
+    $('#mWish').value = '';
     calc();
 
     clearTimeout(closingT);
@@ -750,12 +751,12 @@
   /* корзина (js/cart.js): «В корзину» — полёт и тост; «Оформить заказ» — сразу в корзину */
   $('#mAdd').addEventListener('click', () => {
     if (!current || !window.MKCart) return;
-    window.MKCart.add(current.id, curW, { from: $('.ph', $('#mMedia')) });
+    window.MKCart.add(current.id, curW, { from: $('.ph', $('#mMedia')), note: $('#mWish').value });
     close(true);
   });
   $('#mOrder').addEventListener('click', () => {
     if (!current || !window.MKCart) return;
-    window.MKCart.add(current.id, curW, { silent: true });
+    window.MKCart.add(current.id, curW, { silent: true, note: $('#mWish').value });
     close(true);
     window.MKCart.open();
   });

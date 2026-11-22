@@ -16,7 +16,9 @@
   const MAX_QTY = 20;
 
   const byId = id => MK.products.find(p => p.id === id);
-  const keyOf = it => it.id + '@' + it.w;
+  const keyOf = it => it.id + '@' + it.w + '@' + encodeURIComponent(it.note || '');
+  const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+  const cleanNote = s => String(s || '').replace(/\s+/g, ' ').trim().slice(0, 200);
 
   /* ───────────── хранение ───────────── */
   let items = [];
@@ -24,7 +26,7 @@
     const raw = JSON.parse(localStorage.getItem(KEY) || '[]');
     if (Array.isArray(raw)) {
       items = raw.filter(it => it && byId(it.id) && it.w > 0)
-                 .map(it => ({ id: it.id, w: Number(it.w), qty: Math.min(MAX_QTY, Math.max(1, Math.round(it.qty) || 1)) }));
+                 .map(it => ({ id: it.id, w: Number(it.w), qty: Math.min(MAX_QTY, Math.max(1, Math.round(it.qty) || 1)), note: cleanNote(it.note) }));
     }
   } catch (e) {}
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(items)); } catch (e) {} };
@@ -121,9 +123,10 @@
     const p = byId(id);
     if (!p || !(w > 0)) return;
     opts = opts || {};
-    const ex = items.find(it => it.id === id && it.w === w);
+    const note = cleanNote(opts.note);
+    const ex = items.find(it => it.id === id && it.w === w && (it.note || '') === note);
     if (ex) ex.qty = Math.min(MAX_QTY, ex.qty + 1);
-    else items.push({ id: id, w: w, qty: 1 });
+    else items.push({ id: id, w: w, qty: 1, note: note });
     save();
     if (!panel.hidden) render();
     if (opts.silent) { syncBadges(false); return; }
@@ -167,17 +170,53 @@
           '<label class="field"><span>Телефон</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7" required></label>' +
         '</div>' +
         '<button class="btn btn--lg cform__go" type="submit">Оформить заказ</button>' +
-        '<p class="cform__demo">Демо-сайт: заявка никуда не отправляется.</p>' +
+        '<p class="cform__demo">' + (window.MKOrders && window.MKOrders.mode === 'db'
+            ? 'Заказ уйдёт кондитеру — он свяжется с вами для подтверждения.'
+            : 'Демо: заказ сохранится только в этом браузере и никуда не отправится.') + '</p>' +
       '</form>';
     formEl = $('#cForm', body);
     formEl.elements.when.min = nowLocal();
     formEl.addEventListener('change', e => { if (e.target.name === 'dlv') syncDelivery(); });
     formEl.elements.when.addEventListener('input', checkLead);
     formEl.elements.when.addEventListener('change', checkLead);
-    formEl.addEventListener('submit', e => {
+    formEl.addEventListener('submit', async e => {
       e.preventDefault();
       if (!formEl.reportValidity()) return;
-      MK.toast('Это демо-сайт, заявка не отправлена');
+      const O = window.MKOrders;
+      if (!O) { MK.toast('Это демо-сайт, заявка не отправлена'); return; }
+      const f = formEl, go = $('.cform__go', f), el = f.elements;
+      const db = O.mode === 'db';
+      go.disabled = true; go.textContent = 'Отправляем…';
+      let order = null;
+      try {
+        order = await O.create(items, {
+          when: el.when.value, dlv: el.dlv.value,
+          name: el.name.value, phone: el.phone.value,
+          address: el.dlv.value === 'delivery'
+            ? { street: el.street.value, house: el.house.value, flat: el.flat.value, comment: el.comment.value } : null
+        });
+      } catch (err) {
+        console.error('[cart] заказ не отправился', err);
+      } finally {
+        if (go.isConnected) { go.disabled = false; go.textContent = 'Оформить заказ'; }   // кнопка не остаётся заблокированной
+      }
+      if (!order) {
+        MK.toast(db ? 'Не получилось отправить заказ. Проверьте интернет и попробуйте ещё раз.' : 'Это демо-сайт, заявка не отправлена');
+        return;                                                    // корзина и форма остаются как были
+      }
+      items = []; save(); syncBadges(false);
+      formEl = null;
+      body.innerHTML =
+        '<div class="cart__empty cart__done">' +
+          '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="19"/><path d="m15.5 24.5 6 6 11-12"/></svg>' +
+          '<h4 tabindex="-1">Заказ №' + order.no + ' оформлен</h4>' +
+          '<p>Статус видно в «Моих заказах»: когда торт будет готов, там появится «Можно забирать».</p>' +
+          (db ? '<p class="cform__demo">Кондитер уже видит заказ и свяжется с вами по телефону.</p>'
+              : '<p class="cform__demo">Демо: заказ сохранён только в этом браузере и никуда не отправлен.</p>') +
+          '<button class="btn btn--lg" type="button" data-open-mine>Мои заказы</button>' +
+          '<button class="btn btn--ghost" type="button" data-cclose>Продолжить покупки</button>' +
+        '</div>';
+      $('.cart__done h4', body).focus();
     });
   }
   /* 3 — срок приготовления: дата получения не раньше, чем успеем самый долгий торт в корзине.
@@ -240,7 +279,8 @@
       const p = byId(it.id);
       return '<li class="citem" data-key="' + keyOf(it) + '">' +
           '<span class="citem__ph">' + MK.placeholder(p) + '</span>' +
-          '<span class="citem__main"><b>' + p.name + '</b><span>' + MK.kg(it.w) + ' · ' + MK.money(MK.priceAt(p, it.w)) + ' · готовим ' + MK.leadText(p) + '</span></span>' +
+          '<span class="citem__main"><b>' + p.name + '</b><span>' + MK.kg(it.w) + ' · ' + MK.money(MK.priceAt(p, it.w)) + ' · готовим ' + MK.leadText(p) + '</span>' +
+            (it.note ? '<span class="citem__note">Пожелания: ' + esc(it.note) + '</span>' : '') + '</span>' +
           '<span class="qty" role="group" aria-label="Количество">' +
             '<button type="button" data-d="-1" aria-label="Меньше"' + (it.qty <= 1 ? ' disabled' : '') + '>−</button>' +
             '<output aria-live="polite">' + it.qty + '</output>' +
@@ -260,6 +300,7 @@
   }
 
   body.addEventListener('click', e => {
+    if (e.target.closest('[data-open-mine]')) { close(false); if (window.MKAccount) window.MKAccount.openMine(); return; }
     if (e.target.closest('[data-go-catalog]')) {
       close(false);
       const cat = document.getElementById('catalog');

@@ -205,3 +205,45 @@
 .cform__lead[hidden] { display: none; }
 .cform__lead.is-warn { color: #e0566f; font-weight: 700; }
 html[data-theme="light"] .cform__lead.is-warn { color: #b3243e; }
+
+/* ───────────── пожелания к торту (модалка) ───────────── */
+.wish { display: grid; gap: 6px; }
+.wish .h-mini { margin: 0; }
+.wish textarea {
+  width: 100%; min-height: 64px; padding: 10px 14px; resize: vertical;
+  border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  font: inherit; font-size: .9rem;
+}
+.wish textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+.wish small { font-size: .76rem; color: var(--muted); }
+.citem__note { font-size: .78rem !important; color: var(--text) !important; opacity: .85; font-style: italic; overflow-wrap: anywhere; }
+
+/* ───────────── заказ оформлен ───────────── */
+.cart__done { padding-top: 8vh; }
+.cart__done svg { color: #4fbf8a; opacity: 1; }
+.cart__done h4:focus { outline: none; }
+.cart__done .btn { width: min(280px, 100%); }
+
+/* ───────────── мои заказы ───────────── */
+.mo { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+.mo__item { padding: 14px; border-radius: var(--r-md); background: var(--surface-2); border: 1px solid var(--border); display: grid; gap: 10px; }
+.mo__top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.mo__top b { font-family: "Playfair Display", Georgia, serif; font-size: 1.1rem; font-weight: 600; }
+.mo__top span { font-size: .78rem; color: var(--muted); }
+.mo__st { display: grid; gap: 2px; padding: 10px 12px; border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface); }
+.mo__st b { font-size: .95rem; }
+.mo__st span { font-size: .8rem; color: var(--muted); }
+.mo__st--new    { border-color: color-mix(in srgb, #5b8def 55%, var(--border)); }
+.mo__st--ready  { border-color: #4fbf8a; background: color-mix(in srgb, #4fbf8a 14%, var(--surface)); }
+.mo__st--ready span { color: var(--text); }
+.mo__no { font-size: 1.25rem; letter-spacing: .02em; }
+.mo__st--cancel b { color: var(--muted); text-decoration: line-through; }
+.mo__lines { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; font-size: .88rem; }
+.mo__lines li { display: grid; gap: 1px; }
+.mo__lines small { font-size: .78rem; color: var(--muted); font-style: italic; overflow-wrap: anywhere; }
+.mo__bottom { display: flex; justify-content: space-between; align-items: baseline; padding-top: 8px; border-top: 1px solid var(--border); font-size: .86rem; color: var(--muted); }
+.mo__bottom b { color: var(--text); font-size: 1rem; }
+
+/* пункт меню владельца */
+.nav .nav__admin { color: var(--accent); font-weight: 700; }
+.mo__load { color: var(--muted); font-size: .9rem; padding: 24px 4px; }

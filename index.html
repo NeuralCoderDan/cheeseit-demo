@@ -8,35 +8,36 @@
 <meta name="theme-color" content="#0a0a0c">
 
 <!-- иконка сайта: та же, что в логотипе -->
-<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
-<link rel="icon" href="img/favicon-32.png" type="image/png" sizes="32x32">
-<link rel="apple-touch-icon" href="img/apple-touch-icon.png">
+<link rel="icon" href="images/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="images/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="apple-touch-icon" href="images/apple-touch-icon.png">
 
 <!-- Превью ссылки в мессенджерах и соцсетях (Open Graph, Twitter Card).
-     ВАЖНО: мессенджеры понимают только ПОЛНЫЕ адреса. После публикации сайта
-     замените «img/og-image.jpg» и og:url на полный адрес, например
-     https://ваш-домен/img/og-image.jpg — пока сайт не опубликован, адреса нет. -->
+     Адреса полные: мессенджеры не понимают относительные ссылки.
+     Картинка — images/og.png (1200×630), исходник — images/og.svg.
+     Сменится адрес сайта — поменяйте og:url, og:image и twitter:image. -->
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Моя кондитерская">
 <meta property="og:locale" content="ru_RU">
 <meta property="og:title" content="Моя кондитерская — торты на заказ">
-<meta property="og:description" content="Каталог тортов, вес и цена под число гостей, подбор с помощником.">
-<meta property="og:url" content="./">
-<meta property="og:image" content="img/og-image.jpg">
+<meta property="og:description" content="Торты на заказ: каталог, вес и цена под число гостей, подбор с помощником.">
+<meta property="og:url" content="https://neuralcoderdan.github.io/cheeseit-demo/">
+<meta property="og:image" content="https://neuralcoderdan.github.io/cheeseit-demo/images/og.png">
+<meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Логотип «Моя кондитерская» — иконка торта на тёмном фоне">
+<meta property="og:image:alt" content="«Моя кондитерская» — торты на заказ: иконка торта на тёмном фоне">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Моя кондитерская — торты на заказ">
-<meta name="twitter:description" content="Каталог тортов, вес и цена под число гостей, подбор с помощником.">
-<meta name="twitter:image" content="img/og-image.jpg">
-<meta name="twitter:image:alt" content="Логотип «Моя кондитерская» — иконка торта на тёмном фоне">
+<meta name="twitter:description" content="Торты на заказ: каталог, вес и цена под число гостей, подбор с помощником.">
+<meta name="twitter:image" content="https://neuralcoderdan.github.io/cheeseit-demo/images/og.png">
+<meta name="twitter:image:alt" content="«Моя кондитерская» — торты на заказ: иконка торта на тёмном фоне">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="css/styles.css?v=13">
 <link rel="stylesheet" href="css/assistant.css?v=5">
-<link rel="stylesheet" href="css/cart.css?v=4">
+<link rel="stylesheet" href="css/cart.css?v=7">
 <script>
   /* тема до первой отрисовки — чтобы не было вспышки */
   (function () {
@@ -78,6 +79,10 @@
       <a href="#find">Как нас найти</a>
       <a href="#faq">Вопросы</a>
       <a href="#contacts">Контакты</a>
+      <!-- видны только тем, кому нужны: «Мои заказы» — после первого заказа,
+           «Админ-панель» — в режиме владельца (см. js/account.js) -->
+      <a href="#my-orders" id="navMine" hidden>Мои заказы</a>
+      <a href="admin.html" id="navAdmin" class="nav__admin" hidden>Админ-панель</a>
     </nav>
 
     <div class="hdr__act">
@@ -374,6 +379,13 @@
           <p class="wtotal" aria-live="polite"><strong id="wTotal"></strong><small>цена ориентировочная</small></p>
         </div>
 
+        <!-- пожелания к базовому торту: попадут в заказ, кондитер увидит их в админке -->
+        <label class="wish">
+          <span class="h-mini">Пожелания к торту</span>
+          <textarea id="mWish" rows="2" maxlength="200" placeholder="Например: побольше ягод, надпись «С днём рождения!»"></textarea>
+          <small>Необязательно. Кондитер увидит это в заказе.</small>
+        </label>
+
         <div class="modal__cols">
           <div>
             <h4 class="h-mini">Состав</h4>
@@ -435,6 +447,20 @@
       </button>
     </header>
     <div class="cart__body" id="cartBody"></div>
+  </aside>
+</div>
+
+<!-- ───────────────── МОИ ЗАКАЗЫ ───────────────── -->
+<div class="cart" id="mine" hidden>
+  <div class="cart__backdrop" data-mclose></div>
+  <aside class="cart__box" role="dialog" aria-modal="true" aria-labelledby="mineTitle">
+    <header class="cart__hdr">
+      <h3 id="mineTitle">Мои заказы</h3>
+      <button class="iconbtn" type="button" data-mclose aria-label="Закрыть «Мои заказы»">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </header>
+    <div class="cart__body" id="mineBody"></div>
   </aside>
 </div>
 
@@ -505,9 +531,12 @@
 }
 </script>
 
+<script src="js/config.js?v=1"></script>
 <script src="js/data.js?v=4"></script>
-<script src="js/app.js?v=8"></script>
-<script src="js/cart.js?v=3"></script>
+<script src="js/orders.js?v=3"></script>
+<script src="js/app.js?v=9"></script>
+<script src="js/cart.js?v=5"></script>
+<script src="js/account.js?v=2"></script>
 <script src="js/assistant.js?v=9"></script>
 </body>
 </html>

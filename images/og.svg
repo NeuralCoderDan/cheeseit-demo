@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <title>Моя кондитерская — торты на заказ</title>
+  <!-- Исходник для images/og.png (превью ссылки 1200×630).
+       Фон из сплошных форм, без плавных градиентов: так PNG весит меньше 300 КБ —
+       больше WhatsApp не показывает. -->
+
+  <rect width="1200" height="630" fill="#0a0a0c"/>
+  <!-- мягкие пятна фирменных цветов -->
+  <circle cx="930" cy="300" r="330" fill="#2a1820"/>
+  <circle cx="930" cy="300" r="250" fill="#3a2029"/>
+  <circle cx="110" cy="640" r="230" fill="#1d1810"/>
+
+  <!-- иконка торта — та же, что в логотипе -->
+  <g transform="translate(760 130)">
+    <rect width="340" height="340" rx="84" fill="#eeb5c9"/>
+    <g transform="translate(42 42) scale(8)" fill="none" stroke="#1d1014" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M6 26h20v-6c0-2-1.6-3.5-3.6-3.5H9.6C7.6 16.5 6 18 6 20v6Z"/>
+      <path d="M9 16.5v-3M16 16.5v-4M23 16.5v-3"/>
+      <circle cx="9" cy="11" r="1.1" fill="#1d1014" stroke="none"/>
+      <circle cx="16" cy="10" r="1.1" fill="#1d1014" stroke="none"/>
+      <circle cx="23" cy="11" r="1.1" fill="#1d1014" stroke="none"/>
+      <path d="M6 21.5c2.2 1.6 4.4 1.6 6.6 0 2.2 1.6 4.4 1.6 6.7 0 2.2 1.6 4.5 1.6 6.7 0"/>
+    </g>
+  </g>
+
+  <g font-family="Georgia, 'Times New Roman', serif" fill="#f3f0ea">
+    <text x="96" y="258" font-size="92">Моя</text>
+    <text x="96" y="362" font-size="92" fill="#e59ab4">кондитерская</text>
+  </g>
+  <text x="100" y="448" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="40" fill="#c9c5bd">Торты на заказ</text>
+  <rect x="96" y="500" width="196" height="50" rx="25" fill="none" stroke="#d9b06a" stroke-width="2"/>
+  <text x="194" y="533" text-anchor="middle" font-family="Helvetica Neue, Helvetica, Arial, sans-serif" font-size="22" font-weight="bold" fill="#d9b06a">ДЕМО-САЙТ</text>
+</svg>
