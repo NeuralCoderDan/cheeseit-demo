@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Кухня — заказы для кондитеров — Моя кондитерская</title>
+<meta name="description" content="Страница кондитеров: какие торты готовить, к какому времени, вес и пожелания.">
+<!-- рабочая страница: только по прямому адресу, в поиск не попадает -->
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="images/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="images/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="css/styles.css?v=13">
+<link rel="stylesheet" href="css/admin.css?v=10">
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('mk-theme');
+      if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+  })();
+</script>
+</head>
+<body>
+
+<a class="skip" href="#main">Перейти к заказам</a>
+
+<div class="adm-bar" role="note" id="kBar">
+  Демонстрация страницы кондитера. Заказы — пример.
+</div>
+
+<header class="adm-hdr">
+  <div class="wrap adm-hdr__in">
+    <div class="brand" aria-label="Моя кондитерская — кухня">
+      <span class="brand__mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+          <path d="M6 26h20v-6c0-2-1.6-3.5-3.6-3.5H9.6C7.6 16.5 6 18 6 20v6Z"/>
+          <path d="M9 16.5v-3M16 16.5v-4M23 16.5v-3"/>
+          <circle cx="9" cy="11" r="1.1" fill="currentColor" stroke="none"/>
+          <circle cx="16" cy="10" r="1.1" fill="currentColor" stroke="none"/>
+          <circle cx="23" cy="11" r="1.1" fill="currentColor" stroke="none"/>
+          <path d="M6 21.5c2.2 1.6 4.4 1.6 6.6 0 2.2 1.6 4.4 1.6 6.7 0 2.2 1.6 4.5 1.6 6.7 0"/>
+        </svg>
+      </span>
+      <span class="brand__txt">Моя<em>кондитерская</em></span>
+    </div>
+    <span class="adm-hdr__ttl">Кухня <span class="adm-tag" id="whoTag" hidden></span></span>
+    <a class="adm-link" href="admin.html" id="toAdmin" hidden>Админ-панель</a>
+    <button class="adm-link" type="button" id="refresh">Обновить</button>
+    <button class="adm-link" type="button" id="signOut" hidden>Выйти</button>
+
+    <button class="toggle" id="themeBtn" type="button" aria-pressed="true" aria-label="Переключить тему">
+      <span class="toggle__ic" aria-hidden="true">
+        <svg class="ic-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5Z"/></svg>
+        <svg class="ic-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="4.2"/><path d="M12 3v2.2M12 18.8V21M3 12h2.2M18.8 12H21M5.6 5.6l1.6 1.6M16.8 16.8l1.6 1.6M18.4 5.6l-1.6 1.6M7.2 16.8l-1.6 1.6"/></svg>
+      </span>
+      <span class="toggle__lbl" id="themeLbl">Тёмная</span>
+    </button>
+  </div>
+</header>
+
+<main id="main" class="wrap adm" data-state="dash">
+
+  <!-- вход (только когда подключена база) -->
+  <section class="panel gate gate--login" aria-labelledby="lgTtl">
+    <h1 class="adm-h1" id="lgTtl">Вход для кондитеров</h1>
+    <p class="gate__lead">Почту и пароль выдаёт владелец кондитерской.</p>
+    <form class="gate__form" id="loginForm" novalidate>
+      <label class="field"><span>Почта</span><input id="lgEmail" type="email" autocomplete="username" required></label>
+      <label class="field"><span>Пароль</span><input id="lgPass" type="password" autocomplete="current-password" required></label>
+      <p class="gate__err" id="lgErr" role="alert" hidden></p>
+      <button class="btn btn--lg" type="submit" id="lgGo">Войти</button>
+    </form>
+  </section>
+  <section class="panel gate gate--notowner" aria-labelledby="noTtl">
+    <h1 class="adm-h1" id="noTtl">Нет доступа к кухне</h1>
+    <p class="gate__lead">Вы вошли как <b id="noEmail"></b>, но этот аккаунт не добавлен в кондитеры.
+      Попросите владельца добавить вас.</p>
+  </section>
+  <section class="panel gate gate--offline" aria-labelledby="offTtl">
+    <h1 class="adm-h1" id="offTtl">База сейчас недоступна</h1>
+    <p class="gate__lead">Проверьте интернет и попробуйте ещё раз.</p>
+    <button class="btn btn--lg" type="button" id="retryDb">Попробовать ещё раз</button>
+  </section>
+
+  <p class="adm-msg" id="kMsg" role="status" hidden></p>
+
+  <section aria-labelledby="kTtl">
+    <div class="k-head">
+      <h1 class="adm-h1" id="kTtl">Что готовить</h1>
+      <p class="k-sum" id="kSum" aria-live="polite"></p>
+    </div>
+    <p class="board__lead">Сверху — то, что отдавать раньше. Торт готов — нажмите «Готов к выдаче»:
+      покупатель увидит в «Моих заказах», что можно забирать, и назовёт номер. Отдали — «Выдан».</p>
+    <div class="board board--k" id="board" aria-live="polite"></div>
+  </section>
+</main>
+
+<footer class="adm-ftr">
+  <div class="wrap" id="kFoot">Список обновляется сам раз в 30 секунд.</div>
+</footer>
+
+<script src="js/config.js?v=2"></script>
+<script src="js/data.js?v=4"></script>
+<script src="js/orders.js?v=4"></script>
+<script src="js/kitchen.js?v=2"></script>
+</body>
+</html>

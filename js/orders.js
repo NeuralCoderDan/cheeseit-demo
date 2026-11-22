@@ -212,6 +212,26 @@
       const sb = await client();
       const r = await sb.rpc('is_owner');
       return !r.error && r.data === true;
+    },
+    /* роль вошедшего: 'owner' | 'staff' | null */
+    async role() {
+      const sb = await client();
+      return must(await sb.rpc('my_role')) || null;
+    },
+    /* кухня: текущие заказы без сумм (база сама убирает цены) */
+    async kitchen() {
+      const sb = await client();
+      return must(await sb.rpc('kitchen_orders')).map(r => {
+        const o = fromRow(r, false);
+        delete o.total;
+        return o;
+      });
+    },
+    /* смена статуса через базу: кондитер — только «готов» и «выдан», отмена — владелец */
+    async kitchenStatus(no, status) {
+      const sb = await client();
+      must(await sb.rpc('set_order_status', { p_no: no, p_status: status }));
+      return true;
     }
   };
 
@@ -223,7 +243,15 @@
     async session() { return null; },
     async signIn() { return { ok: false, reason: 'demo' }; },
     async signOut() {},
-    async isOwner() { return false; }
+    async isOwner() { return false; },
+    async role() { return 'owner'; },               // в демо — показ владельцу
+    async kitchen() {
+      const day = Date.now() - 864e5;
+      return read().filter(o => o.status === 'new' || o.status === 'ready' ||
+                                (o.status === 'done' && new Date(o.statusAt).getTime() > day))
+                   .map(o => { const c = Object.assign({}, o); delete c.total; return c; });
+    },
+    async kitchenStatus(no, status) { return setStatus(no, status); }
   };
   const api = DB ? dbApi : demoApi;
 
@@ -242,6 +270,9 @@
     signIn: api.signIn,
     signOut: api.signOut,
     isOwner: api.isOwner,
+    role: api.role,
+    kitchen: api.kitchen,
+    kitchenStatus: api.kitchenStatus,
     /* есть ли у этого браузера заказы — без запроса к сети (для пункта меню) */
     hasMine: () => (DB ? tokens().length > 0 : read().some(o => o.mine)),
     seedExamples: () => (DB ? [] : seedExamples()),

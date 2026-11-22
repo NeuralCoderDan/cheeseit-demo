@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="css/styles.css?v=13">
-<link rel="stylesheet" href="css/admin.css?v=7">
+<link rel="stylesheet" href="css/admin.css?v=10">
 <script>
   (function () {
     try {
@@ -50,6 +50,7 @@
       <span class="brand__txt">Моя<em>кондитерская</em></span>
     </div>
     <span class="adm-hdr__ttl">Админ-панель <span class="adm-tag" id="admTag">демо</span></span>
+    <a class="adm-link" href="kitchen.html">Кухня</a>
     <a class="adm-link" href="./">На сайт</a>
     <button class="adm-link" type="button" id="ownerOff" hidden>Выйти из режима владельца</button>
     <button class="adm-link" type="button" id="signOut" hidden>Выйти</button>
@@ -108,15 +109,30 @@
     </figure>
   </section>
 
-  <!-- ───────── заказы по статусам ───────── -->
-  <section class="panel" aria-labelledby="boardTtl">
+  <!-- ───────── последние заказы (история) ───────── -->
+  <section class="panel" aria-labelledby="histTtl">
     <div class="panel__hdr">
-      <h2 class="panel__ttl" id="boardTtl">Заказы</h2>
+      <h2 class="panel__ttl" id="histTtl">Последние заказы</h2>
       <button class="adm-link" type="button" id="resetDemo">Вернуть примеры</button>
     </div>
-    <p class="board__lead">Новые заказы — сверху те, что нужно отдать раньше. Готовый заказ переведите
-      в «Готов к выдаче» — покупатель увидит в «Моих заказах», что можно забирать, и назовёт номер.</p>
-    <div class="board" id="board" aria-live="polite"></div>
+    <p class="board__lead">Что готовить сейчас, кондитеры видят на странице
+      <a href="kitchen.html">«Кухня»</a> — там же они отмечают «Готов к выдаче» и «Выдан».</p>
+    <div class="tbl-wrap" role="region" aria-labelledby="histTtl" tabindex="0">
+      <table class="tbl">
+        <thead>
+          <tr>
+            <th scope="col">№</th>
+            <th scope="col">Дата</th>
+            <th scope="col">Клиент</th>
+            <th scope="col">Что заказали</th>
+            <th scope="col" class="num">Сумма</th>
+            <th scope="col">Получение</th>
+            <th scope="col">Статус</th>
+          </tr>
+        </thead>
+        <tbody id="hist"></tbody>
+      </table>
+    </div>
     <p class="adm-foot">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>
       <span id="privacyNote">Личные данные видит только владелец — в демо вместо имён «Покупатель №…»</span>
@@ -179,7 +195,7 @@
 <!-- каталог (названия, цены за кг, веса) — тот же, что на сайте -->
 <script src="js/config.js?v=2"></script>
 <script src="js/data.js?v=4"></script>
-<script src="js/orders.js?v=3"></script>
-<script src="js/admin.js?v=7"></script>
+<script src="js/orders.js?v=4"></script>
+<script src="js/admin.js?v=9"></script>
 </body>
 </html>

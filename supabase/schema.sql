@@ -96,6 +96,61 @@ language sql stable security definer set search_path = public as $$
   order by o.id desc;
 $$;
 
+-- ── кондитеры и продавцы ─────────────────────────────────────
+--  Видят текущие заказы (что готовить, вес, пожелания, имя и телефон),
+--  но не суммы и не выручку. Ставят «Готов к выдаче» и «Выдан».
+--  Отменять заказ может только владелец.
+create table if not exists public.staff (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  name    text check (char_length(name) <= 60)
+);
+alter table public.staff enable row level security;
+drop policy if exists "staff sees self" on public.staff;
+create policy "staff sees self" on public.staff
+  for select to authenticated using (user_id = auth.uid() or public.is_owner());
+
+create or replace function public.my_role()
+returns text language sql stable security definer set search_path = public as $$
+  select case
+    when exists (select 1 from public.owners where user_id = auth.uid()) then 'owner'
+    when exists (select 1 from public.staff  where user_id = auth.uid()) then 'staff'
+  end;
+$$;
+
+-- заказы для кухни: новые, готовые к выдаче и выданные за последние сутки — без сумм и цен
+create or replace function public.kitchen_orders()
+returns table (order_no bigint, created_at timestamptz, receive_at timestamptz, delivery text, items jsonb,
+               customer_name text, customer_phone text, address jsonb, status text, status_at timestamptz)
+language plpgsql stable security definer set search_path = public as $$
+begin
+  if public.my_role() is null then raise exception 'forbidden'; end if;
+  return query
+    select o.id, o.created_at, o.receive_at, o.delivery,
+           coalesce((select jsonb_agg(i - 'price') from jsonb_array_elements(o.items) i), '[]'::jsonb),
+           o.customer_name, o.customer_phone, o.address, o.status, o.status_at
+    from public.orders o
+    where o.status in ('new', 'ready')
+       or (o.status = 'done' and o.status_at > now() - interval '1 day')
+    order by coalesce(o.receive_at, o.created_at);
+end $$;
+
+-- смена статуса: кондитер — только new → ready и ready → done; владелец — любой
+create or replace function public.set_order_status(p_no bigint, p_status text)
+returns void language plpgsql security definer set search_path = public as $$
+declare
+  r   text := public.my_role();
+  cur text;
+begin
+  if r is null then raise exception 'forbidden'; end if;
+  if p_status not in ('new', 'ready', 'done', 'cancel') then raise exception 'status'; end if;
+  select o.status into cur from public.orders o where o.id = p_no for update;
+  if cur is null then raise exception 'not found'; end if;
+  if r = 'staff' and not ((cur = 'new' and p_status = 'ready') or (cur = 'ready' and p_status = 'done')) then
+    raise exception 'forbidden transition';
+  end if;
+  update public.orders set status = p_status where id = p_no;
+end $$;
+
 -- права на таблицы — явно, при любой настройке «Grant API access to new tables»:
 -- анониму таблицы недоступны совсем; вошедшему — только то, что пустят политики выше
 revoke all on public.orders from anon, authenticated;
@@ -110,10 +165,26 @@ grant execute on function public.place_order(jsonb, integer, text, timestamptz, 
 grant execute on function public.my_orders(uuid[]) to anon, authenticated;
 grant execute on function public.is_owner() to authenticated;
 
+revoke all on public.staff from anon, authenticated;
+grant select on public.staff to authenticated;
+revoke all on function public.my_role() from public;
+revoke all on function public.kitchen_orders() from public;
+revoke all on function public.set_order_status(bigint, text) from public;
+grant execute on function public.my_role() to authenticated;
+grant execute on function public.kitchen_orders() to authenticated;
+grant execute on function public.set_order_status(bigint, text) to authenticated;
+
 -- ============================================================
 --  ПОСЛЕ запуска — назначить владельца:
 --  1) Authentication → Users → Add user → почта и пароль владельца.
 --  2) Выполнить (подставив его почту):
 --       insert into public.owners (user_id)
 --       select id from auth.users where email = 'почта-владельца@пример.ru';
+--
+--  Добавить кондитера или продавца:
+--  1) Authentication → Users → Add user → его почта и пароль.
+--  2) Выполнить (подставив почту и имя):
+--       insert into public.staff (user_id, name)
+--       select id, 'Имя кондитера' from auth.users where email = 'почта-кондитера@пример.ru';
+--  Убрать доступ: delete from public.staff where user_id = (select id from auth.users where email = '…');
 -- ============================================================

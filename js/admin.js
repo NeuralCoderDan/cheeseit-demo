@@ -1,10 +1,10 @@
 /* ============================================================
-   Админ-панель.
-   • ДЕМО (js/config.js пустой): цифры и заказы — ПРИМЕР, плюс заказы,
-     оформленные на сайте в этом браузере.
-   • БАЗА (Supabase подключён): вход владельца по почте и паролю,
-     настоящие заказы, сводка и график считаются по ним; список
-     обновляется сам раз в 30 секунд.
+   Админ-панель ВЛАДЕЛЬЦА: сколько заработано, сколько клиентов,
+   последние заказы, график, топ-3. Текущие заказы ведут кондитеры
+   на странице kitchen.html («Кухня»).
+   • ДЕМО (js/config.js пустой): цифры — ПРИМЕР.
+   • БАЗА: вход владельца; всё считается по настоящим заказам,
+     обновляется само раз в 30 секунд.
    Названия тортов и цены за кг — из js/data.js.
    ============================================================ */
 (function () {
@@ -45,27 +45,38 @@
   const sum = a => a.reduce((x, y) => x + y, 0);
   const last = a => a[a.length - 1];
 
-  let stats = { orders: EXAMPLE_ORDERS, revenue: EXAMPLE_REVENUE, example: true };
+  const EXAMPLE_CLIENTS = { month: 39, year: 214 };   // ПРИМЕР
+  let stats = { orders: EXAMPLE_ORDERS, revenue: EXAMPLE_REVENUE, clients: EXAMPLE_CLIENTS, example: true };
+  const monthOf = iso => { const d = new Date(iso); return monthIdx.findIndex(x => x.y === d.getFullYear() && x.m === d.getMonth()); };
+  /* один клиент = один телефон (без пробелов и скобок); в демо — номер покупателя */
+  const clientKey = o => String(o.phone || '').replace(/\D/g, '').slice(-10) || (o.name || '') || ('demo' + (300 + (o.no * 37) % 600));
   function statsFrom(list) {
     const orders = monthIdx.map(() => 0), revenue = monthIdx.map(() => 0);
+    const yearC = new Set(), monthC = new Set();
     list.filter(o => o.status !== 'cancel').forEach(o => {
-      const d = new Date(o.created), i = monthIdx.findIndex(x => x.y === d.getFullYear() && x.m === d.getMonth());
-      if (i > -1) { orders[i]++; revenue[i] += Number(o.total) || 0; }
+      const i = monthOf(o.created);
+      if (i > -1) { orders[i]++; yearC.add(clientKey(o)); if (i === 11) monthC.add(clientKey(o)); }
     });
-    return { orders: orders, revenue: revenue, example: false };
+    // заработано — по выданным заказам, в месяц выдачи
+    list.filter(o => o.status === 'done').forEach(o => {
+      const i = monthOf(o.statusAt);
+      if (i > -1) revenue[i] += Number(o.total) || 0;
+    });
+    return { orders: orders, revenue: revenue, clients: { month: monthC.size, year: yearC.size }, example: false };
   }
 
   /* ───────── плитки ───────── */
   function renderTiles() {
+    const ex = stats.example;
     const t = [
-      ['Заказов за месяц', nf.format(last(stats.orders))],
-      ['Выручка за месяц', money(last(stats.revenue))],
-      ['Заказов за год', nf.format(sum(stats.orders))],
-      ['Выручка за год', money(sum(stats.revenue))]
+      ['Заработано за месяц', money(last(stats.revenue)), 'по выданным заказам'],
+      ['Заработано за год',   money(sum(stats.revenue)),  'по выданным заказам'],
+      ['Клиентов за месяц',   nf.format(stats.clients.month), 'без повторов, по телефону'],
+      ['Клиентов за год',     nf.format(stats.clients.year),  'заказов за год: ' + nf.format(sum(stats.orders))]
     ];
     $('#tiles').innerHTML = t.map(x =>
       '<div class="tile"><span class="tile__k">' + x[0] + '</span><b class="tile__v">' + x[1] + '</b>' +
-      '<span class="tile__ex">' + (stats.example ? 'пример' : 'без отменённых') + '</span></div>').join('');
+      '<span class="tile__ex">' + (ex ? 'пример' : x[2]) + '</span></div>').join('');
   }
 
   /* ───────── столбчатый график — inline SVG, без библиотек ─────────
@@ -103,13 +114,8 @@
     rT = setTimeout(() => { if ($('#chart').clientWidth !== lastW) { lastW = $('#chart').clientWidth; chart(); } }, 120);
   });
 
-  /* ───────── заказы по статусам: Новые · Готов к выдаче · Выдано · Отменено ───────── */
-  const COLS = [
-    ['new',    'Новые',          'предстоят — сначала ближайшие'],
-    ['ready',  'Готов к выдаче', 'можно забирать'],
-    ['done',   'Выдано',         'продано'],
-    ['cancel', 'Отменено',       '']
-  ];
+  /* ───────── последние заказы — история для владельца ───────── */
+  const STATUS = { new: 'Новый', ready: 'Готов к выдаче', done: 'Выдан', cancel: 'Отменён' };
   const fmt = iso => {
     if (!iso) return '—';
     const d = new Date(iso);
@@ -120,47 +126,30 @@
   const who = o => {
     if (DB) {
       const tel = String(o.phone || '').replace(/[^\d+]/g, '');
-      return esc(o.name || 'Покупатель') + (o.phone ? ' · <a href="tel:' + esc(tel) + '">' + esc(o.phone) + '</a>' : '');
+      return esc(o.name || 'Покупатель') + (o.phone ? '<br><a href="tel:' + esc(tel) + '">' + esc(o.phone) + '</a>' : '');
     }
     return o.mine ? 'Покупатель (заказ с сайта)' : 'Покупатель №' + (300 + (o.no * 37) % 600);
   };
-  const addr = o => {
-    const a = o.address;
-    if (!a || o.dlv !== 'delivery') return '';
-    const line = [a.street, a.house && 'д. ' + a.house, a.flat && 'кв. ' + a.flat].filter(Boolean).join(', ');
-    return '<div class="oc__addr">' + esc(line) + (a.comment ? '<small>' + esc(a.comment) + '</small>' : '') + '</div>';
-  };
-  const weight = o => o.items.reduce((s, i) => s + (Number(i.w) || 0) * (Number(i.qty) || 1), 0);
-
-  /* «Красный бархат, добавить побольше ягод» — без «добавить: Добавить …» */
-  const wish = t => /^(добав|без |меньше|больше|побольше|поменьше|надпис|убрат)/i.test(t)
-    ? esc(t.charAt(0).toLowerCase() + t.slice(1)) : 'пожелание: ' + esc(t);
-
-  function card(o) {
-    const lines = o.items.map(i => {
-      const name = (O.product(i.id) || {}).name || i.name || '—';
-      return '<li><span><b>' + esc(name) + '</b> · ' + kg(i.w) + (i.qty > 1 ? ' × ' + i.qty : '') + '</span>' +
-             (i.note ? '<small>' + esc(name) + ', ' + wish(i.note) + '</small>' : '') + '</li>';
-    }).join('');
-    let state = '';
-    if (o.status === 'new')    state = '<span class="oc__when">К получению: <b>' + fmt(o.when) + '</b></span>';
-    if (o.status === 'ready')  state = '<span class="oc__ready">№' + o.no + ' — ' + (o.dlv === 'pickup' ? 'можно забирать' : 'передать курьеру') + '</span>';
-    if (o.status === 'done')   state = '<span class="oc__when">Выдан: ' + fmt(o.statusAt) + '</span>';
-    if (o.status === 'cancel') state = '<span class="oc__when">Отменён: ' + fmt(o.statusAt) + '</span>';
-    const acts = {
-      new:   [['ready', 'Готов к выдаче', 'main'], ['cancel', 'Отменить', '']],
-      ready: [['done', 'Выдан', 'main'], ['cancel', 'Отменить', '']]
-    }[o.status] || [];
-    const tag = DB ? '' : (o.example ? '<span class="oc__tag">пример</span>' : '<span class="oc__tag oc__tag--live">с сайта</span>');
-    return '<article class="oc oc--' + o.status + '" data-no="' + o.no + '">' +
-      '<header class="oc__hdr"><b class="oc__no">№' + o.no + '</b>' + tag + '</header>' +
-      '<div class="oc__who">' + who(o) + ' · оформлен ' + fmt(o.created) + '</div>' +
-      '<ul class="oc__lines">' + lines + '</ul>' +
-      '<div class="oc__meta"><span>' + (o.dlv === 'delivery' ? 'Доставка' : 'Самовывоз') + ' · ' + kg(weight(o)) + '</span><b>' + money(o.total) + '</b></div>' +
-      addr(o) + state +
-      (acts.length ? '<div class="oc__acts">' + acts.map(a =>
-        '<button type="button" class="oc__btn' + (a[2] ? ' oc__btn--main' : '') + '" data-to="' + a[0] + '">' + a[1] + '</button>').join('') + '</div>' : '') +
-    '</article>';
+  const HIST_MAX = 30;
+  function renderHistory() {
+    const list = orders.slice().sort((a, b) => new Date(b.created) - new Date(a.created)).slice(0, HIST_MAX);
+    $('#hist').innerHTML = list.length ? list.map(o => {
+      const what = o.items.map(i => {
+        const name = (O.product(i.id) || {}).name || i.name || '—';
+        return esc(name) + ' · ' + kg(i.w) + (i.qty > 1 ? ' × ' + i.qty : '') + (i.note ? '<small>' + esc(i.note) + '</small>' : '');
+      }).join('<br>');
+      // data-label — подписи полей, когда на телефоне строка превращается в карточку
+      return '<tr>' +
+        '<td class="tbl__no" data-label="№">№' + o.no + '</td>' +
+        '<td class="tbl__date" data-label="Дата">' + fmt(o.created) + '</td>' +
+        '<td class="tbl__who" data-label="Клиент">' + who(o) + '</td>' +
+        '<td class="tbl__what" data-label="Что заказали">' + what + '</td>' +
+        '<td class="num tbl__sum" data-label="Сумма">' + money(o.total) + '</td>' +
+        '<td class="tbl__dlv" data-label="Получение">' + (o.dlv === 'delivery' ? 'Доставка' : 'Самовывоз') + '</td>' +
+        '<td class="tbl__st" data-label="Статус"><span class="st st--' + o.status + '">' + STATUS[o.status] + '</span></td>' +
+      '</tr>';
+    }).join('') : '<tr><td colspan="7" class="col__empty">Заказов пока нет</td></tr>';
+    renderTop(orders);
   }
 
   const msg = $('#admMsg');
@@ -178,53 +167,13 @@
       orders = await O.all();
       if (DB) stats = statsFrom(orders);
       renderTiles(); chart(); lastW = $('#chart').clientWidth;
-      renderBoard();
+      renderHistory();
     } catch (err) {
       console.error('[admin] заказы не загрузились', err);
       say('Не получилось загрузить заказы. Проверьте интернет и нажмите «Обновить».');
     } finally { loading = false; }
   }
 
-  function renderBoard() {
-    $('#board').innerHTML = COLS.map(c => {
-      const list = orders.filter(o => o.status === c[0]);
-      if (c[0] === 'new') list.sort((a, b) => new Date(a.when || a.created) - new Date(b.when || b.created));
-      else list.sort((a, b) => new Date(b.statusAt) - new Date(a.statusAt));
-      return '<section class="col col--' + c[0] + '" aria-labelledby="col-' + c[0] + '">' +
-        '<h3 class="col__ttl" id="col-' + c[0] + '">' + c[1] + ' <span class="col__n">' + list.length + '</span></h3>' +
-        (c[2] ? '<p class="col__sub">' + c[2] + '</p>' : '') +
-        (list.length ? list.map(card).join('') : '<p class="col__empty">Пусто</p>') +
-      '</section>';
-    }).join('');
-    renderTop(orders);
-  }
-
-  /* отмена — со вторым нажатием, чтобы не отменить случайно */
-  $('#board').addEventListener('click', async e => {
-    const b = e.target.closest('.oc__btn');
-    if (!b || b.disabled) return;
-    const no = Number(b.closest('.oc').dataset.no), to = b.dataset.to;
-    if (to === 'cancel' && !b.classList.contains('is-confirm')) {
-      b.classList.add('is-confirm');
-      b.textContent = 'Точно отменить?';
-      setTimeout(() => { if (b.isConnected) { b.classList.remove('is-confirm'); b.textContent = 'Отменить'; } }, 3500);
-      return;
-    }
-    b.disabled = true;
-    try {
-      await O.setStatus(no, to);
-      const o = orders.find(x => x.no === no);
-      if (o) { o.status = to; o.statusAt = new Date().toISOString(); }
-      if (DB) stats = statsFrom(orders), renderTiles(), chart();
-      renderBoard();
-      const again = document.querySelector('.oc[data-no="' + no + '"]');
-      if (again) { again.setAttribute('tabindex', '-1'); again.focus(); }
-    } catch (err) {
-      console.error('[admin] статус не сменился', err);
-      say('Не получилось сменить статус заказа №' + no + '. Проверьте интернет и попробуйте ещё раз.');
-      if (b.isConnected) b.disabled = false;
-    }
-  });
   window.addEventListener('mk-orders', () => { if (!DB) load(); });   // демо: заказ из соседней вкладки
 
   /* ───────── что больше нравится: топ-3 тортов и их частое пожелание ───────── */
