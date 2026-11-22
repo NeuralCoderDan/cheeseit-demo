@@ -96,6 +96,13 @@ language sql stable security definer set search_path = public as $$
   order by o.id desc;
 $$;
 
+-- права на таблицы — явно, при любой настройке «Grant API access to new tables»:
+-- анониму таблицы недоступны совсем; вошедшему — только то, что пустят политики выше
+revoke all on public.orders from anon, authenticated;
+revoke all on public.owners from anon, authenticated;
+grant select, update on public.orders to authenticated;
+grant select on public.owners to authenticated;
+
 -- функции доступны сайту; таблицы напрямую — нет
 revoke all on function public.place_order(jsonb, integer, text, timestamptz, text, text, jsonb) from public;
 revoke all on function public.my_orders(uuid[]) from public;

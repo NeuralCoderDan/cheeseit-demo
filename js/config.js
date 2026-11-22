@@ -15,6 +15,6 @@
    НИКОГДА не вставляйте сюда ключ service_role / secret.
    ============================================================ */
 window.MK_CONFIG = {
-  SUPABASE_URL: '',
-  SUPABASE_ANON_KEY: ''
+  SUPABASE_URL: 'https://fmiaxvroehkmpquxzatn.supabase.co',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtaWF4dnJvZWhrbXBxdXh6YXRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTUzMDQzMDIsImV4cCI6MjExMDg4MDMwMn0.eIGDV_SPzFpSDTwM6sjQM5PlTFNZVgIGkPoNi8UOAFg'
 };
