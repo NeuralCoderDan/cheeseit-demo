@@ -258,7 +258,7 @@ html[data-theme="light"] .fab--ai::after { border-color: rgba(255, 255, 255, .9)
   border-radius: 999px; border: 1px solid var(--border); background: var(--surface); color: var(--text);
   font-size: .88rem;
 }
-.chat__in:focus { outline: none; border-color: var(--ai-1); }
+.chat__in:focus { outline: none; border-color: var(--ai-1); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ai-1) 35%, transparent); }
 .chat__send {
   width: 42px; height: 42px; flex: 0 0 auto; display: grid; place-items: center;
   border-radius: 50%; border: 0; cursor: pointer; color: #fff;

@@ -160,7 +160,8 @@
           '</div>' +
           '<label class="field"><span>Комментарий</span><textarea name="comment" rows="2" placeholder="Подъезд, этаж, код домофона" disabled></textarea></label>' +
         '</div>' +
-        '<label class="field"><span>Дата и время получения</span><input name="when" type="datetime-local" required></label>' +
+        '<label class="field"><span>Дата и время получения</span><input name="when" type="datetime-local" required aria-describedby="cLead"></label>' +
+        '<p class="cform__lead" id="cLead" aria-live="polite" hidden></p>' +
         '<div class="cform__row">' +
           '<label class="field"><span>Имя</span><input name="name" autocomplete="name" required></label>' +
           '<label class="field"><span>Телефон</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7" required></label>' +
@@ -171,12 +172,49 @@
     formEl = $('#cForm', body);
     formEl.elements.when.min = nowLocal();
     formEl.addEventListener('change', e => { if (e.target.name === 'dlv') syncDelivery(); });
+    formEl.elements.when.addEventListener('input', checkLead);
+    formEl.elements.when.addEventListener('change', checkLead);
     formEl.addEventListener('submit', e => {
       e.preventDefault();
       if (!formEl.reportValidity()) return;
       MK.toast('Это демо-сайт, заявка не отправлена');
     });
   }
+  /* 3 — срок приготовления: дата получения не раньше, чем успеем самый долгий торт в корзине.
+     Пока у торта в js/data.js заглушка «___», проверять не с чем — только напоминаем. */
+  function checkLead() {
+    if (!formEl) return;
+    const inp = formEl.elements.when, note = $('#cLead', body);
+    let slow = null, unknown = false;
+    items.forEach(it => {
+      const p = byId(it.id), d = MK.leadDays(p);
+      if (d == null) unknown = true;
+      else if (!slow || d > MK.leadDays(slow)) slow = p;
+    });
+    let msg = '', warn = false;
+    inp.setCustomValidity('');
+    if (slow) {
+      const min = new Date(); min.setHours(0, 0, 0, 0); min.setDate(min.getDate() + MK.leadDays(slow));
+      inp.min = new Date(min.getTime() - min.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+      if (inp.value) {
+        const day = new Date(inp.value); day.setHours(0, 0, 0, 0);
+        if (day < min) {
+          msg = (items.length === 1 ? 'Этот торт' : '«' + slow.name + '»') + ' готовится ' + MK.leadText(slow) + ', выберите дату позже';
+          warn = true;
+          inp.setCustomValidity(msg);                    // форма не отправится с такой датой
+        }
+      }
+    } else {
+      inp.min = nowLocal();
+    }
+    if (!msg && unknown) msg = 'Готовим ' + MK.leadText(items.map(it => byId(it.id)).find(p => MK.leadDays(p) == null)) +
+                               ' — точный срок укажет владелец, выбирайте дату с запасом';
+    note.textContent = msg;
+    note.hidden = !msg;
+    note.classList.toggle('is-warn', warn);
+    note.setAttribute('role', warn ? 'alert' : 'status');
+  }
+
   function syncDelivery() {
     const mode = formEl.elements.dlv.value;
     $$('[data-when]', formEl).forEach(el => {
@@ -202,7 +240,7 @@
       const p = byId(it.id);
       return '<li class="citem" data-key="' + keyOf(it) + '">' +
           '<span class="citem__ph">' + MK.placeholder(p) + '</span>' +
-          '<span class="citem__main"><b>' + p.name + '</b><span>' + MK.kg(it.w) + ' · ' + MK.money(MK.priceAt(p, it.w)) + '</span></span>' +
+          '<span class="citem__main"><b>' + p.name + '</b><span>' + MK.kg(it.w) + ' · ' + MK.money(MK.priceAt(p, it.w)) + ' · готовим ' + MK.leadText(p) + '</span></span>' +
           '<span class="qty" role="group" aria-label="Количество">' +
             '<button type="button" data-d="-1" aria-label="Меньше"' + (it.qty <= 1 ? ' disabled' : '') + '>−</button>' +
             '<output aria-live="polite">' + it.qty + '</output>' +
@@ -218,6 +256,7 @@
       '<div><span>' + n + ' ' + MK.plural(n, ['позиция', 'позиции', 'позиций']) + '</span></div>' +
       '<div class="csum__total"><span>Итого</span><b>' + MK.money(total()) + '</b></div>' +
       '<p>Цена ориентировочная — точную сумму подтвердит кондитер.</p>';
+    checkLead();
   }
 
   body.addEventListener('click', e => {

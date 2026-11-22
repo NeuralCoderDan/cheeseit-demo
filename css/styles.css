@@ -98,7 +98,7 @@ ul, ol, dl { margin: 0; padding: 0; list-style: none; }
   background: var(--accent); color: #1a1013; padding: 10px 16px; border-radius: 0 0 var(--r-sm) 0;
 }
 .skip:focus { left: 0; }
-:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 /* ============================= кнопки ============================= */
 .btn {
@@ -388,7 +388,7 @@ html[data-theme="light"] .ic-moon { opacity: 0; transform: rotate(90deg) scale(.
   width: 76px; height: 36px; padding: 0 10px; border-radius: var(--r-sm);
   background: var(--surface); border: 1px solid var(--border); color: var(--text); font-weight: 700;
 }
-.ghint__f input:focus { border-color: var(--accent); outline: none; }
+.ghint__f input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
 .ghint__t { font-size: .82rem; color: var(--muted); }
 .wtotal { display: grid; gap: 2px; padding-top: 14px; border-top: 1px solid var(--border); }
 .wtotal strong { font-family: "Playfair Display", Georgia, serif; font-size: clamp(1.5rem, 2.4vw, 1.9rem); font-weight: 600; }
@@ -403,7 +403,7 @@ html[data-theme="light"] .ic-moon { opacity: 0; transform: rotate(90deg) scale(.
   font: inherit; font-weight: 600; width: 100%;
 }
 .field textarea { height: auto; padding: 10px 14px; resize: vertical; font-weight: 500; }
-.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); outline: none; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
 .modal__btns { display: flex; gap: 12px; flex-wrap: wrap; }
 body.is-locked { overflow: hidden; }
 
@@ -540,6 +540,7 @@ html.vt-cols::view-transition-new(root) { animation: none; }
   transition: border-color .18s;
 }
 .sort select:hover, .sort select:focus { border-color: var(--accent); outline: none; }
+.sort select:focus-visible { box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
 
 .empty { display: grid; justify-items: center; gap: 16px; }
 .empty[hidden] { display: none; }        /* иначе display:grid перебивает hidden и текст читают скринридеры */
@@ -617,3 +618,106 @@ html.vt-cols::view-transition-new(root) { animation: none; }
 
 /* первая отрисовка: без переходов (см. app.js) */
 html.is-booting .tab, html.is-booting .pchip, html.is-booting .cols button { transition: none; }
+
+
+/* ============================================================
+   Поиск по каталогу
+   ============================================================ */
+.search {
+  position: relative; display: flex; align-items: center; flex: 0 0 auto;
+  height: 34px; width: 210px; padding: 0 6px 0 12px; gap: 6px;
+  border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); color: var(--muted);
+  transition: border-color .18s, box-shadow .18s;
+}
+.search:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent); }
+.search > svg { width: 16px; height: 16px; flex: 0 0 auto; }
+.search__in {
+  flex: 1; min-width: 0; width: 100%; height: 100%; border: 0; background: transparent; color: var(--text);
+  font: inherit; font-size: .84rem; font-weight: 600; outline: none;
+}
+.search__in::placeholder { color: var(--muted); font-weight: 500; }
+.search__in::-webkit-search-cancel-button { display: none; }
+.search__x {
+  width: 24px; height: 24px; flex: 0 0 auto; display: grid; place-items: center; padding: 0;
+  border: 0; border-radius: 50%; background: transparent; color: var(--muted); cursor: pointer;
+}
+.search__x:hover { color: var(--text); background: var(--surface); }
+.search__x[hidden] { display: none; }
+.search__x svg { width: 14px; height: 14px; }
+.search--bar { flex: 1 1 0; width: auto; min-width: 0; height: 40px; }   /* сжимается — кнопка корзины не уезжает за край */
+.search--bar .search__in { font-size: .88rem; }
+@media (max-width: 900px) {
+  .search--row { width: 170px; }
+  .sort__lbl { display: none; }        /* место отдаём ряду цен; сам список подписан aria */
+}
+
+/* ============================================================
+   Срок приготовления
+   ============================================================ */
+.card__lead { font-size: .78rem; color: var(--muted); font-weight: 600; }
+.leadtime {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px;
+  font-family: "Playfair Display", Georgia, serif; font-size: 1.3rem;
+  padding: 14px 18px; border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--gold) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--gold) 40%, var(--border));
+}
+.leadtime b { font-weight: 600; color: var(--gold); }
+.leadtime small { font-family: "Manrope", sans-serif; font-size: .76rem; color: var(--muted); }
+html[data-theme="light"] .leadtime b { color: #8a6420; }   /* золото на светлом — темнее, 4,9:1 */
+
+.btn--icon svg { width: 18px; height: 18px; }
+
+/* ============================================================
+   Недавно смотрели
+   ============================================================ */
+.recent { margin-top: clamp(36px, 5vw, 56px); padding-top: 22px; border-top: 1px solid var(--border); }
+.recent[hidden] { display: none; }
+.recent__hdr { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+.recent__ttl { font-family: "Manrope", sans-serif; font-size: .78rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); }
+.recent__clear { border: 0; background: none; padding: 4px 2px; color: var(--muted); font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+.recent__clear:hover { color: var(--accent); }
+.recent__list {
+  display: flex; gap: 12px; overflow-x: auto; scroll-snap-type: x proximity;
+  padding: 4px 4px 8px; margin: -4px -4px 0; scrollbar-width: thin; list-style: none;
+}
+.recent__list li { flex: 0 0 auto; scroll-snap-align: start; }
+.rcard {
+  display: flex; align-items: center; gap: 10px; width: 230px; padding: 8px 12px 8px 8px; text-align: left;
+  border-radius: var(--r-sm); border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer;
+  transition: border-color .18s;
+}
+.rcard:hover { border-color: var(--accent); }
+.rcard__ph { width: 48px; height: 48px; flex: 0 0 auto; border-radius: 10px; overflow: hidden; }
+.rcard__ph .ph { height: 100%; aspect-ratio: auto; }
+.rcard__ph .ph__ic { width: 60%; }
+.rcard__t { display: grid; gap: 2px; min-width: 0; }
+.rcard__t b { font-family: "Playfair Display", Georgia, serif; font-weight: 600; font-size: .95rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rcard__t span { font-size: .8rem; color: var(--muted); }
+
+/* ============================================================
+   Частые вопросы
+   ============================================================ */
+.faq { max-width: 860px; }
+.faq__list { display: grid; gap: 10px; }
+.faq__item { border: 1px solid var(--border); border-radius: var(--r-md); background: var(--surface); transition: border-color .2s; }
+.faq__item[open] { border-color: color-mix(in srgb, var(--accent) 45%, var(--border)); }
+.faq__item summary {
+  list-style: none; cursor: pointer; position: relative;
+  padding: 18px 56px 18px 22px; font-weight: 700; font-size: 1rem; border-radius: var(--r-md);
+}
+.faq__item summary::-webkit-details-marker { display: none; }
+.faq__item summary::after {
+  content: ""; position: absolute; right: 22px; top: 50%; width: 12px; height: 12px; margin-top: -8px;
+  border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent);
+  transform: rotate(45deg); transition: transform .25s var(--ease);
+}
+.faq__item[open] summary::after { transform: rotate(225deg); margin-top: -2px; }
+.faq__item summary:hover { color: var(--accent); }
+.faq__item p { padding: 0 22px 20px; }
+@media (max-width: 620px) {
+  .faq__item summary { padding: 16px 48px 16px 18px; font-size: .95rem; }
+  .faq__item summary::after { right: 18px; }
+  .faq__item p { padding: 0 18px 18px; }
+  .modal__btns .btn { flex: 1 1 auto; }
+}

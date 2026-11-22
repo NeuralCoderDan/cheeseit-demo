@@ -199,3 +199,9 @@
   .cartbtn__n.is-bump { animation: none; }
   .sheet__box, .cart__box, .ctoast { animation: none !important; transition: none !important; }
 }
+
+/* срок приготовления под датой получения */
+.cform__lead { margin-top: -6px; font-size: .8rem; color: var(--muted); line-height: 1.4; }
+.cform__lead[hidden] { display: none; }
+.cform__lead.is-warn { color: #e0566f; font-weight: 700; }
+html[data-theme="light"] .cform__lead.is-warn { color: #b3243e; }

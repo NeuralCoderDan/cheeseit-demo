@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Такой страницы нет — Моя кондитерская</title>
+<meta name="description" content="Страница не найдена. Вернитесь на главную или в каталог тортов.">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0a0a0c">
+<!-- Ссылки и иконки — относительные: страница рассчитана на корень сайта.
+     Если сайт лежит в подпапке, замените «./» на полный адрес главной. -->
+<link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="img/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700&family=Playfair+Display:ital,wght@0,600;1,600&display=swap">
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('mk-theme');
+      if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+  })();
+</script>
+<style>
+  /* стили встроены: страница должна выглядеть правильно с любого адреса */
+  :root {
+    --bg: #0a0a0c; --surface: #15151b; --text: #f3f0ea; --muted: #9d9a94;
+    --border: rgba(255,255,255,.09); --accent: #e59ab4; --accent-soft: #f6cfdd;
+    --accent-fill: #e59ab4; --on-accent: #1d1014;
+  }
+  html[data-theme="light"] {
+    --bg: #fbf8f4; --surface: #ffffff; --text: #17171c; --muted: #6c6a73;
+    --border: rgba(20,16,12,.10); --accent-fill: #a8325c; --on-accent: #ffffff;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html, body { height: 100%; }
+  body {
+    min-height: 100%; display: grid; place-items: center; padding: 24px 16px;
+    background: radial-gradient(60% 50% at 70% 30%, color-mix(in srgb, var(--accent) 22%, transparent), transparent 70%), var(--bg);
+    color: var(--text); font-family: "Manrope", system-ui, sans-serif; line-height: 1.55;
+  }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+  main { width: min(560px, 100%); text-align: center; display: grid; justify-items: center; gap: 18px; }
+  .brand { display: inline-flex; align-items: center; gap: 12px; color: inherit; text-decoration: none; border-radius: 14px; }
+  .brand__mark {
+    width: 52px; height: 52px; display: grid; place-items: center; border-radius: 15px;
+    background: linear-gradient(150deg, var(--accent-soft), var(--accent)); color: #1d1014;
+  }
+  .brand__mark svg { width: 32px; height: 32px; }
+  .brand__txt { font-family: "Playfair Display", Georgia, serif; font-size: 1.2rem; text-align: left; line-height: 1.1; }
+  .brand__txt em { display: block; font-style: normal; font-family: "Manrope", sans-serif; font-size: .68rem; letter-spacing: .22em; text-transform: uppercase; color: var(--muted); }
+  .code { font-family: "Playfair Display", Georgia, serif; font-size: clamp(5rem, 22vw, 9rem); line-height: 1; color: var(--accent); font-style: italic; margin-top: 18px; }
+  h1 { font-family: "Playfair Display", Georgia, serif; font-weight: 600; font-size: clamp(1.7rem, 6vw, 2.4rem); line-height: 1.15; }
+  p { color: var(--muted); max-width: 40ch; }
+  .btns { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 10px; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; min-height: 52px; padding: 0 28px;
+    border-radius: 999px; border: 1px solid transparent; font-weight: 700; text-decoration: none;
+    background: var(--accent-fill); color: var(--on-accent); transition: transform .18s, filter .18s;
+  }
+  .btn:hover { filter: brightness(1.06); transform: translateY(-2px); }
+  .btn--ghost { background: transparent; color: var(--text); border-color: var(--border); }
+  .btn--ghost:hover { border-color: var(--accent); color: var(--accent); filter: none; }
+  @media (prefers-reduced-motion: reduce) { .btn { transition: none; } .btn:hover { transform: none; } }
+</style>
+</head>
+<body>
+<main>
+  <a class="brand" href="./" aria-label="Моя кондитерская — на главную">
+    <span class="brand__mark" aria-hidden="true">
+      <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+        <path d="M6 26h20v-6c0-2-1.6-3.5-3.6-3.5H9.6C7.6 16.5 6 18 6 20v6Z"/>
+        <path d="M9 16.5v-3M16 16.5v-4M23 16.5v-3"/>
+        <circle cx="9" cy="11" r="1.1" fill="currentColor" stroke="none"/>
+        <circle cx="16" cy="10" r="1.1" fill="currentColor" stroke="none"/>
+        <circle cx="23" cy="11" r="1.1" fill="currentColor" stroke="none"/>
+        <path d="M6 21.5c2.2 1.6 4.4 1.6 6.6 0 2.2 1.6 4.4 1.6 6.7 0 2.2 1.6 4.5 1.6 6.7 0"/>
+      </svg>
+    </span>
+    <span class="brand__txt">Моя<em>кондитерская</em></span>
+  </a>
+
+  <p class="code" aria-hidden="true">404</p>
+  <h1>Такой страницы нет</h1>
+  <p>Возможно, ссылка устарела или в адресе опечатка. Торты никуда не делись — они в каталоге.</p>
+
+  <div class="btns">
+    <a class="btn" href="./">На главную</a>
+    <a class="btn btn--ghost" href="./#catalog">В каталог</a>
+  </div>
+</main>
+</body>
+</html>

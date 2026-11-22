@@ -10,6 +10,9 @@
    minWeight — минимальный вес; цена «от» на карточке = perKg × minWeight;
    weights   — (необязательно) свой набор весов, если стандартный
                1 · 1,5 · 2 · 2,5 · 3 · 4 кг не подходит (бенто, наборы).
+   leadDays  — за сколько дней готовим этот торт. Владелец вписывает число,
+               например leadDays: 3. Пока стоит заглушка '___', сайт пишет
+               «готовим ___ дня» и не проверяет дату получения в корзине.
    ============================================================ */
 
 /* ТЕЛЕФОН ВЛАДЕЛЬЦА — впишите сюда свой номер, например '+7 (999) 123-45-67'.
@@ -46,7 +49,8 @@ const PRODUCTS = [
     desc: 'Классика с ярким срезом и контрастным светлым кремом — подходит почти под любой праздник.',
     flavors: ['сливки'],
     decor: 'Подтёки, акцент сверху',
-    tiers: 1
+    tiers: 1,
+    leadDays: '___'
   },
   {
     id: 'choco-caramel', name: 'Шоколад и карамель', cat: 'birthday', icon: 'cake',
@@ -55,7 +59,8 @@ const PRODUCTS = [
     desc: 'Насыщенный, плотный десерт для тех, кто любит торты погуще.',
     flavors: ['шоколад'],
     decor: 'Подтёки',
-    tiers: 1
+    tiers: 1,
+    leadDays: '___'
   },
   {
     id: 'pistachio', name: 'Фисташка и малина', cat: 'birthday', icon: 'slice',
@@ -64,7 +69,8 @@ const PRODUCTS = [
     desc: 'Сдержанный, не приторный вкус с лёгкой кислинкой.',
     flavors: ['ягоды', 'не сладко'],
     decor: 'Велюровое покрытие',
-    tiers: 1
+    tiers: 1,
+    leadDays: '___'
   },
   {
     id: 'dino', name: 'Динозавры', cat: 'kids', icon: 'cake',
@@ -73,7 +79,8 @@ const PRODUCTS = [
     desc: 'Торт с фигурками динозавров для детского праздника.',
     flavors: [],
     decor: 'Фигурки, «травяной» декор',
-    tiers: 1
+    tiers: 1,
+    leadDays: '___'
   },
   {
     id: 'rainbow', name: 'Радуга', cat: 'kids', icon: 'slice',
@@ -82,7 +89,8 @@ const PRODUCTS = [
     desc: 'Разноцветные слои на срезе — эффектно в момент подачи.',
     flavors: [],
     decor: 'Радужные подтёки',
-    tiers: 1
+    tiers: 1,
+    leadDays: '___'
   },
   {
     id: 'bunny', name: 'Зайчик на облаке', cat: 'kids', icon: 'bento',
@@ -91,7 +99,8 @@ const PRODUCTS = [
     desc: 'Небольшой торт для самых маленьких именинников.',
     flavors: [],
     decor: 'Фигурка зайца, облака',
-    tiers: 1
+    tiers: 1,
+    leadDays: '___'
   },
   {
     id: 'ivory', name: 'Ivory, два яруса', cat: 'wedding', icon: 'tiered',
@@ -100,7 +109,8 @@ const PRODUCTS = [
     desc: 'Двухъярусный торт в спокойной светлой палитре, с ровными боками.',
     flavors: [],
     decor: 'Текстурное покрытие, цветочный декор',
-    tiers: 2
+    tiers: 2,
+    leadDays: '___'
   },
   {
     id: 'marble', name: 'Мраморный с золотом', cat: 'wedding', icon: 'tiered',
@@ -109,7 +119,8 @@ const PRODUCTS = [
     desc: 'Трёхъярусный торт с мраморным узором — для больших залов.',
     flavors: [],
     decor: 'Мраморный узор, золотые акценты',
-    tiers: 3
+    tiers: 3,
+    leadDays: '___'
   },
   {
     id: 'naked', name: 'Naked cake с ягодами', cat: 'wedding', icon: 'cake',
@@ -118,7 +129,8 @@ const PRODUCTS = [
     desc: 'Открытые бока и видимые слои — лёгкий стиль для выездной церемонии.',
     flavors: ['ягоды'],
     decor: 'Минимум покрытия',
-    tiers: 2
+    tiers: 2,
+    leadDays: '___'
   },
   {
     id: 'mango', name: 'Манго-маракуйя', cat: 'mousse', icon: 'slice',
@@ -127,7 +139,8 @@ const PRODUCTS = [
     desc: 'Муссовый торт с ярким кисло-сладким вкусом.',
     flavors: ['фрукты'],
     decor: 'Глянцевое покрытие',
-    tiers: 1
+    tiers: 1,
+    leadDays: '___'
   },
   {
     id: 'blackcurrant', name: 'Чёрная смородина', cat: 'mousse', icon: 'slice',
@@ -136,7 +149,8 @@ const PRODUCTS = [
     desc: 'Муссовый торт с насыщенным ягодным вкусом.',
     flavors: ['ягоды'],
     decor: 'Велюр, зеркальная капля',
-    tiers: 1
+    tiers: 1,
+    leadDays: '___'
   },
   {
     id: 'ny-classic', name: 'Чизкейк Нью-Йорк', cat: 'cheesecake', icon: 'cheesecake',
@@ -145,7 +159,8 @@ const PRODUCTS = [
     desc: 'Плотный сливочный чизкейк в классическом стиле.',
     flavors: ['сливки'],
     decor: 'Классическая подача',
-    tiers: 1
+    tiers: 1,
+    leadDays: '___'
   },
   {
     id: 'basque', name: 'Басконский чизкейк', cat: 'cheesecake', icon: 'cheesecake',
@@ -154,7 +169,8 @@ const PRODUCTS = [
     desc: 'Чизкейк с тёмной карамелизованной корочкой и мягким центром.',
     flavors: ['сливки'],
     decor: 'Без декора',
-    tiers: 1
+    tiers: 1,
+    leadDays: '___'
   },
   {
     id: 'bento-love', name: 'Бенто «записка»', cat: 'bento', icon: 'bento',
@@ -163,7 +179,8 @@ const PRODUCTS = [
     desc: 'Маленький торт на 1–2 человека с надписью от руки.',
     flavors: [],
     decor: 'Надпись, коробка-бенто',
-    tiers: 1
+    tiers: 1,
+    leadDays: '___'
   },
   {
     id: 'bento-mono', name: 'Бенто моно-цвет', cat: 'bento', icon: 'bento',
@@ -172,7 +189,8 @@ const PRODUCTS = [
     desc: 'Однотонный бенто-торт в выбранном оттенке.',
     flavors: [],
     decor: 'Гладкое покрытие, один цвет',
-    tiers: 1
+    tiers: 1,
+    leadDays: '___'
   },
   {
     id: 'cupcakes-set', name: 'Набор капкейков, 9 шт', cat: 'cupcakes', icon: 'cupcake',
@@ -181,7 +199,8 @@ const PRODUCTS = [
     desc: 'Девять капкейков трёх вкусов в коробке — альтернатива торту.',
     flavors: [],
     decor: 'Шапочки, топперы',
-    tiers: 1
+    tiers: 1,
+    leadDays: '___'
   },
   {
     id: 'cupcakes-kids', name: 'Капкейки детские, 12 шт', cat: 'cupcakes', icon: 'cupcake',
@@ -190,6 +209,7 @@ const PRODUCTS = [
     desc: 'Яркие капкейки с топперами для детского праздника.',
     flavors: [],
     decor: 'Цветная посыпка, топперы',
-    tiers: 1
+    tiers: 1,
+    leadDays: '___'
   }
 ];

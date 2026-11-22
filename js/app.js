@@ -42,6 +42,20 @@
   const hasTiers = p => p.tiers >= 2 || p.cat === 'wedding';
   const fromWord = p => weightOptions(p).length > 1 ? 'от\u00a0' : '';
 
+  /* срок приготовления: число из js/data.js или заглушка «___» */
+  const leadDays = p => (typeof p.leadDays === 'number' && p.leadDays >= 0 ? p.leadDays : null);
+  function leadText(p) {
+    const d = leadDays(p);
+    return d == null ? '___ дня' : d + '\u00a0' + plural(d, ['день', 'дня', 'дней']);
+  }
+
+  /* ── 4: поиск по названию и описанию — вместе с категорией и ценой ── */
+  const normQ = t => String(t || '').toLowerCase().replace(/ё/g, 'е').trim();
+  const HAY = new Map(PRODUCTS.map(p => [p.id, normQ(p.name + ' ' + p.desc + ' ' + (CATEGORIES.find(c => c.id === p.cat) || {}).name)]));
+  /* грубое отсечение окончаний: «свадьба» находит «Свадебные», «ягоды» — «с ягодами» */
+  const stem = w => (w.length >= 5 ? w.slice(0, Math.max(4, w.length - 4)) : w);
+  const inQuery = (p, q) => !q || normQ(q).split(/\s+/).every(w => HAY.get(p.id).indexOf(stem(w)) > -1);
+
   function plural(n, forms) {
     const a = Math.abs(n) % 100, b = a % 10;
     if (a > 10 && a < 20) return forms[2];
@@ -102,7 +116,7 @@
   /* ───────────────────── плейсхолдер вместо фото ───────────────────── */
   function placeholder(p, big) {
     return (
-      '<div class="ph" style="background:linear-gradient(155deg,' + p.c1 + ',' + p.c2 + ')">' +
+      '<div class="ph" aria-hidden="true" style="background:linear-gradient(155deg,' + p.c1 + ',' + p.c2 + ')">' +
         '<div class="ph__dots"></div>' +
         '<div class="ph__ic"' + (big ? ' style="width:34%;max-width:190px"' : '') + '>' + (ICONS[p.icon] || ICONS.cake) + '</div>' +
       '</div>'
@@ -132,7 +146,7 @@
 
   /* сохраняем категорию и сортировку; цену — нет: при новом заходе всегда «Любая»,
      иначе человек возвращается к каталогу из двух позиций и категориям с нулями */
-  const f = { cat: 'all', price: 'any', sort: 'popular' };
+  const f = { cat: 'all', price: 'any', sort: 'popular', q: '' };   // q (поиск) не сохраняем
   try {
     const saved = JSON.parse(localStorage.getItem(FILTER_KEY) || 'null');
     if (saved) {
@@ -157,7 +171,7 @@
   }
 
   function visible() {
-    const list = PRODUCTS.filter(p => (f.cat === 'all' || p.cat === f.cat) && inPrice(p, f.price));
+    const list = PRODUCTS.filter(p => (f.cat === 'all' || p.cat === f.cat) && inPrice(p, f.price) && inQuery(p, f.q));
     if (f.sort === 'asc')  return list.sort((a, b) => price(a) - price(b) || ORDER.get(a.id) - ORDER.get(b.id));
     if (f.sort === 'desc') return list.sort((a, b) => price(b) - price(a) || ORDER.get(a.id) - ORDER.get(b.id));
     return list.sort((a, b) => (b.hit ? 1 : 0) - (a.hit ? 1 : 0) || ORDER.get(a.id) - ORDER.get(b.id));
@@ -181,7 +195,7 @@
     $$('.tab', tabsBox).forEach(t => {
       const c = t.dataset.cat;
       t.setAttribute('aria-selected', String(c === f.cat));
-      const n = PRODUCTS.filter(p => (c === 'all' || p.cat === c) && inPrice(p, f.price)).length;
+      const n = PRODUCTS.filter(p => (c === 'all' || p.cat === c) && inPrice(p, f.price) && inQuery(p, f.q)).length;
       $('.tab__n', t).textContent = n;
       const off = n === 0 && c !== f.cat;          // выбранную не блокируем — у неё есть «Сбросить фильтры»
       t.disabled = off;
@@ -254,11 +268,29 @@
     update();
   });
   sortSel.addEventListener('change', () => { f.sort = sortSel.value; update(); });
-  $('#resetFilters').addEventListener('click', () => { f.cat = 'all'; f.price = 'any'; update(); });
+  $('#resetFilters').addEventListener('click', () => { f.cat = 'all'; f.price = 'any'; setQuery(''); update(); });
+
+  const searchIns = $$('.js-search');
+  function setQuery(v) {
+    f.q = v;
+    searchIns.forEach(i => { if (i.value !== v) i.value = v; });
+    $$('.js-search-clear').forEach(b => { b.hidden = !v; });
+  }
+  searchIns.forEach(inp => {
+    inp.addEventListener('input', () => { setQuery(inp.value); update(); });
+    inp.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && inp.value) { e.stopPropagation(); setQuery(''); update(); }
+      if (e.key === 'Enter') { e.preventDefault(); inp.blur(); }       // на телефоне прячем клавиатуру
+    });
+  });
+  $$('.js-search-clear').forEach(b => b.addEventListener('click', () => {
+    const inp = $('.js-search', b.parentNode);
+    setQuery(''); update(); inp.focus();
+  }));
 
   /* ───────── 5.3 — телефон: кнопка «Фильтры (2)» и панель снизу ───────── */
   const SORT_LABEL = { popular: 'Сначала популярные', asc: 'Дешевле', desc: 'Дороже' };
-  const countIn = (cat, pr) => PRODUCTS.filter(p => (cat === 'all' || p.cat === cat) && inPrice(p, pr)).length;
+  const countIn = (cat, pr) => PRODUCTS.filter(p => (cat === 'all' || p.cat === cat) && inPrice(p, pr) && inQuery(p, f.q)).length;
   const activeN = o => (o.cat !== 'all') + (o.price !== 'any') + (o.sort !== 'popular');
   const sheet = $('#fsheet'), fOpen = $('#fOpen');
   let draft = null, sheetT = 0;
@@ -268,7 +300,8 @@
     $('#fOpenLbl').textContent = n ? 'Фильтры (' + n + ')' : 'Фильтры';
     fOpen.classList.toggle('is-active', n > 0);
     const shown = visible().length;
-    $('#fSum').textContent = shown + ' ' + plural(shown, ['торт', 'торта', 'тортов']);
+    const sum = $('#fSum');
+    if (sum) sum.textContent = shown + ' ' + plural(shown, ['торт', 'торта', 'тортов']);
   }
   function renderSheet() {
     const chip = (attr, val, label, on, off) =>
@@ -400,6 +433,7 @@
           '<span class="card__price">' + fromWord(p) + money(price(p)) + '</span>' +
           '<span class="card__weight">' + fromWord(p) + kg(minW(p)) + '</span>' +
         '</span>' +
+        '<span class="card__lead">Готовим ' + leadText(p) + '</span>' +
         '<span class="card__more">Подробнее и расчёт →</span>' +
       '</span>';
     if (canTilt()) bindTilt(el);
@@ -441,6 +475,10 @@
     }
 
     emptyMsg.hidden = list.length > 0;
+    if (!list.length) {
+      $('#emptyText').textContent = f.q ? 'Ничего не нашли по запросу «' + f.q.trim() + '».' : 'По этим условиям ничего нет.';
+      $('#resetFilters').textContent = f.q ? 'Сбросить поиск и фильтры' : 'Сбросить фильтры';
+    }
     $('#count').textContent = 'Найдено: ' + list.length + ' ' + plural(list.length, ['торт', 'торта', 'тортов']);
   }
 
@@ -523,6 +561,8 @@
     $('#mCat').textContent = catName(p.cat);
     $('#mTitle').textContent = p.name;
     $('#mDesc').textContent = p.desc;
+    $('#mLead').innerHTML = 'Готовим <b>' + leadText(p) + '</b>' +
+      (leadDays(p) == null ? '<small>срок укажет владелец</small>' : '<small>учитывайте при выборе даты</small>');
     $('#mMeta').innerHTML = [
       ['Минимальный вес', kg(minW(p))],
       hasTiers(p) ? ['Ярусов', String(p.tiers)] : null,
@@ -545,6 +585,9 @@
     modal.hidden = false;
     document.body.classList.add('is-locked');
     $('.modal__x').focus();
+
+    remember(p.id);
+    setCakeParam(p.id);
   }
 
   function close(keepFocus) {
@@ -555,6 +598,7 @@
       modal.classList.remove('is-closing');
       if (!document.querySelector('.cart:not([hidden]), .sheet:not([hidden])')) document.body.classList.remove('is-locked');
       current = null;
+      setCakeParam(null);
       if (lastFocus && document.contains(lastFocus)) lastFocus.focus();
     };
     if (reduced()) { finish(); return; }
@@ -564,6 +608,88 @@
 
   modal.addEventListener('click', e => { if (e.target.closest('[data-close]')) close(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !modal.hidden) close(); });
+
+  /* ───────── 1: ссылка прямо на торт — ?cake=ID ───────── */
+  const cakeUrl = id => {
+    const u = new URL(location.href);
+    u.hash = '';
+    u.search = '';
+    u.searchParams.set('cake', id);
+    return u.toString();
+  };
+  function setCakeParam(id) {
+    try {
+      const u = new URL(location.href);
+      if (id) u.searchParams.set('cake', id); else u.searchParams.delete('cake');
+      history.replaceState(history.state, '', u.toString());   // адресная строка тоже ведёт на торт
+    } catch (e) {}
+  }
+  async function copyText(text) {
+    try { await navigator.clipboard.writeText(text); return true; } catch (e) {}
+    const ta = document.createElement('textarea');                 // запасной путь
+    ta.value = text; ta.setAttribute('readonly', ''); ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(ta); ta.select();
+    let ok = false;
+    try { ok = document.execCommand('copy'); } catch (e) {}
+    ta.remove();
+    return ok;
+  }
+  /* на телефоне — системное меню «Поделиться», на десктопе — копируем ссылку */
+  const isTouch = () => window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  $('#mShare').addEventListener('click', async () => {
+    if (!current) return;
+    const url = cakeUrl(current.id);
+    const data = { title: current.name + ' — Моя кондитерская', text: current.name + ': ' + current.desc, url: url };
+    if (navigator.share && isTouch()) {
+      try { await navigator.share(data); return; }
+      catch (e) { if (e && e.name === 'AbortError') return; }      // человек закрыл меню — ничего не делаем
+    }
+    toast(await copyText(url) ? 'Ссылка скопирована' : 'Не удалось скопировать: ' + url);
+  });
+
+  /* ───────── 6: недавно смотрели — последние 6, в localStorage ───────── */
+  const RECENT_KEY = 'mk-recent', recentBox = $('#recent'), recentList = $('#recentList');
+  let recent = [];
+  try { recent = (JSON.parse(localStorage.getItem(RECENT_KEY) || '[]') || []).filter(id => PRODUCTS.some(p => p.id === id)).slice(0, 6); } catch (e) {}
+  function renderRecent() {
+    recentBox.hidden = recent.length === 0;                  // пусто — блока нет вовсе
+    recentList.innerHTML = recent.map(id => {
+      const p = PRODUCTS.find(x => x.id === id);
+      return '<li><button class="rcard" type="button" data-id="' + p.id + '">' +
+               '<span class="rcard__ph">' + placeholder(p) + '</span>' +
+               '<span class="rcard__t"><b>' + p.name + '</b><span>' + fromWord(p) + money(price(p)) + '</span></span>' +
+             '</button></li>';
+    }).join('');
+  }
+  function remember(id) {
+    recent = [id].concat(recent.filter(x => x !== id)).slice(0, 6);
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)); } catch (e) {}
+    renderRecent();
+  }
+  recentList.addEventListener('click', e => {
+    const b = e.target.closest('.rcard');
+    if (b) open(b.dataset.id, b);
+  });
+  $('#recentClear').addEventListener('click', () => {
+    recent = [];
+    try { localStorage.removeItem(RECENT_KEY); } catch (e) {}
+    renderRecent();
+    const t = $('#catTitle'); t.setAttribute('tabindex', '-1'); t.focus();   // фокус не теряется вместе с блоком
+  });
+
+  /* ───────── фокус не уходит из открытого окна (модалка, корзина, фильтры) ───────── */
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Tab') return;
+    const box = $('.cart:not([hidden]) .cart__box') || $('.sheet:not([hidden]) .sheet__box') || $('.modal:not([hidden]) .modal__box');
+    if (!box) return;
+    const items = $$('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])', box)
+      .filter(el => el.offsetParent !== null || el === document.activeElement);
+    if (!items.length) return;
+    const first = items[0], last = items[items.length - 1];
+    if (!box.contains(document.activeElement)) { first.focus(); e.preventDefault(); return; }
+    if (e.shiftKey && document.activeElement === first) { last.focus(); e.preventDefault(); }
+    else if (!e.shiftKey && document.activeElement === last) { first.focus(); e.preventDefault(); }
+  });
 
   /* ───────────────── вес кнопками + подсказка по гостям ───────────────── */
   const wBtns = $('#wBtns'), guests = $('#cGuests'), gHint = $('#gHint'), wTotal = $('#wTotal');
@@ -681,6 +807,8 @@
     kgForGuests: kgForGuests,
     weightForGuests: weightForGuests,
     toast: toast,
+    leadDays: leadDays,
+    leadText: leadText,
     openProduct: function (id, trigger, weight) { open(id, trigger || null, weight); }
   };
 
@@ -690,5 +818,13 @@
   syncControls();
   render();
   updateStick();
+  renderRecent();
   setTimeout(() => html.classList.remove('is-booting'), 60);
+
+  // открыли ссылку ?cake=ID — сразу показываем этот торт
+  try {
+    const id = new URL(location.href).searchParams.get('cake');
+    if (id && PRODUCTS.some(p => p.id === id)) open(id, null);
+    else if (id) setCakeParam(null);
+  } catch (e) {}
 })();
