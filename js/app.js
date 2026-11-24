@@ -433,7 +433,7 @@
           '<span class="card__price">' + fromWord(p) + money(price(p)) + '</span>' +
           '<span class="card__weight">' + fromWord(p) + kg(minW(p)) + '</span>' +
         '</span>' +
-        '<span class="card__lead">Готовим ' + leadText(p) + '</span>' +
+        '<span class="card__lead">Срок приготовления: ' + leadText(p) + '</span>' +
         '<span class="card__more">Подробнее и расчёт →</span>' +
       '</span>';
     if (canTilt()) bindTilt(el);
@@ -561,8 +561,8 @@
     $('#mCat').textContent = catName(p.cat);
     $('#mTitle').textContent = p.name;
     $('#mDesc').textContent = p.desc;
-    $('#mLead').innerHTML = 'Готовим <b>' + leadText(p) + '</b>' +
-      (leadDays(p) == null ? '<small>срок укажет владелец</small>' : '<small>учитывайте при выборе даты</small>');
+    $('#mLead').innerHTML = 'Срок приготовления <b>' + leadText(p) + '</b>' +
+      (leadDays(p) == null ? '<small>у настоящей кондитерской его укажет владелец</small>' : '<small>учитывайте при выборе даты</small>');
     $('#mMeta').innerHTML = [
       ['Минимальный вес', kg(minW(p))],
       hasTiers(p) ? ['Ярусов', String(p.tiers)] : null,

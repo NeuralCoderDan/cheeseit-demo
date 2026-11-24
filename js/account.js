@@ -49,13 +49,13 @@
   function statusBlock(o) {
     if (o.status === 'ready') {
       return '<div class="mo__st mo__st--ready">' +
-               '<b>Готов! ' + (o.dlv === 'pickup' ? 'Можно забирать' : 'Скоро передадим курьеру') + '</b>' +
+               '<b>Готов! ' + (o.dlv === 'pickup' ? 'Можно забирать' : 'Ждёт передачи курьеру') + '</b>' +
                (o.dlv === 'pickup' ? '<span>Назовите номер заказа: <strong class="mo__no">№' + o.no + '</strong></span>' : '') +
              '</div>';
     }
     if (o.status === 'done')   return '<div class="mo__st mo__st--done"><b>Выдан</b><span>' + fmtDate(o.statusAt) + '</span></div>';
     if (o.status === 'cancel') return '<div class="mo__st mo__st--cancel"><b>Отменён</b><span>' + fmtDate(o.statusAt) + '</span></div>';
-    return '<div class="mo__st mo__st--new"><b>Принят — готовим</b>' +
+    return '<div class="mo__st mo__st--new"><b>Принят</b>' +
              (o.when ? '<span>Получение: ' + fmtDate(o.when) + '</span>' : '') + '</div>';
   }
   let loadSeq = 0, pollT = 0;
@@ -79,8 +79,8 @@
       return;
     }
     body.innerHTML =
-      '<p class="cform__demo">' + (O.mode === 'db' ? 'Статус обновляется сам — можно не перезагружать страницу.'
-                                                     : 'Демо: заказы сохранены только в этом браузере.') + '</p>' +
+      '<p class="cform__demo">Демонстрационный сайт: так покупатель видит статус заказа у настоящей кондитерской. ' +
+        'Здесь торт никто не испечёт.' + (O.mode === 'db' ? ' Статус обновляется сам.' : ' Заказы сохранены только в этом браузере.') + '</p>' +
       '<ul class="mo">' + list.map(o =>
         '<li class="mo__item">' +
           '<div class="mo__top"><b>Заказ №' + o.no + '</b><span>' + fmtDate(o.created) + '</span></div>' +

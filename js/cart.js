@@ -170,9 +170,7 @@
           '<label class="field"><span>Телефон</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="+7" required></label>' +
         '</div>' +
         '<button class="btn btn--lg cform__go" type="submit">Оформить заказ</button>' +
-        '<p class="cform__demo">' + (window.MKOrders && window.MKOrders.mode === 'db'
-            ? 'Заказ уйдёт кондитеру — он свяжется с вами для подтверждения.'
-            : 'Демо: заказ сохранится только в этом браузере и никуда не отправится.') + '</p>' +
+        '<p class="cform__demo">Это демонстрационный сайт: заказ сохранится, но никто не позвонит и торт не испекут.</p>' +
       '</form>';
     formEl = $('#cForm', body);
     formEl.elements.when.min = nowLocal();
@@ -210,9 +208,8 @@
         '<div class="cart__empty cart__done">' +
           '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="24" cy="24" r="19"/><path d="m15.5 24.5 6 6 11-12"/></svg>' +
           '<h4 tabindex="-1">Заказ №' + order.no + ' оформлен</h4>' +
-          '<p>Статус видно в «Моих заказах»: когда торт будет готов, там появится «Можно забирать».</p>' +
-          (db ? '<p class="cform__demo">Кондитер уже видит заказ и свяжется с вами по телефону.</p>'
-              : '<p class="cform__demo">Демо: заказ сохранён только в этом браузере и никуда не отправлен.</p>') +
+          '<p class="cform__demo">Это демонстрационный сайт — заказ сохранён, но никто не позвонит и торт не испекут. Так это будет выглядеть у настоящей кондитерской.</p>' +
+          '<p>В «Моих заказах» видно, как у настоящей кондитерской менялся бы статус: «Принят» → «Можно забирать».</p>' +
           '<button class="btn btn--lg" type="button" data-open-mine>Мои заказы</button>' +
           '<button class="btn btn--ghost" type="button" data-cclose>Продолжить покупки</button>' +
         '</div>';
@@ -246,8 +243,8 @@
     } else {
       inp.min = nowLocal();
     }
-    if (!msg && unknown) msg = 'Готовим ' + MK.leadText(items.map(it => byId(it.id)).find(p => MK.leadDays(p) == null)) +
-                               ' — точный срок укажет владелец, выбирайте дату с запасом';
+    if (!msg && unknown) msg = 'Срок приготовления: ' + MK.leadText(items.map(it => byId(it.id)).find(p => MK.leadDays(p) == null)) +
+                               ' — у настоящей кондитерской его укажет владелец, выбирайте дату с запасом';
     note.textContent = msg;
     note.hidden = !msg;
     note.classList.toggle('is-warn', warn);
@@ -279,7 +276,7 @@
       const p = byId(it.id);
       return '<li class="citem" data-key="' + keyOf(it) + '">' +
           '<span class="citem__ph">' + MK.placeholder(p) + '</span>' +
-          '<span class="citem__main"><b>' + p.name + '</b><span>' + MK.kg(it.w) + ' · ' + MK.money(MK.priceAt(p, it.w)) + ' · готовим ' + MK.leadText(p) + '</span>' +
+          '<span class="citem__main"><b>' + p.name + '</b><span>' + MK.kg(it.w) + ' · ' + MK.money(MK.priceAt(p, it.w)) + ' · срок ' + MK.leadText(p) + '</span>' +
             (it.note ? '<span class="citem__note">Пожелания: ' + esc(it.note) + '</span>' : '') + '</span>' +
           '<span class="qty" role="group" aria-label="Количество">' +
             '<button type="button" data-d="-1" aria-label="Меньше"' + (it.qty <= 1 ? ' disabled' : '') + '>−</button>' +
@@ -295,7 +292,7 @@
       '<div><span>Общий вес</span><b>' + MK.kg(totalKg()) + '</b></div>' +
       '<div><span>' + n + ' ' + MK.plural(n, ['позиция', 'позиции', 'позиций']) + '</span></div>' +
       '<div class="csum__total"><span>Итого</span><b>' + MK.money(total()) + '</b></div>' +
-      '<p>Цена ориентировочная — точную сумму подтвердит кондитер.</p>';
+      '<p>Цена ориентировочная — у настоящей кондитерской точную сумму подтверждают при звонке.</p>';
     checkLead();
   }
 

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Журнал модели — Моя кондитерская</title>
+<meta name="description" content="Последние обмены ИИ-помощника с локальной моделью: что отправили, что пришло, был ли откат.">
+<!-- страница для отладки: только по прямому адресу, в поиск не попадает -->
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#0a0a0c">
+<link rel="icon" href="images/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="images/favicon-32.png" type="image/png" sizes="32x32">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="css/styles.css?v=14">
+<link rel="stylesheet" href="css/admin.css?v=12">
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('mk-theme');
+      if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    } catch (e) {}
+  })();
+</script>
+</head>
+<body>
+
+<a class="skip" href="#main">Перейти к журналу</a>
+
+<header class="adm-hdr">
+  <div class="wrap adm-hdr__in">
+    <div class="brand" aria-label="Моя кондитерская — журнал модели">
+      <span class="brand__mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">
+          <path d="M6 26h20v-6c0-2-1.6-3.5-3.6-3.5H9.6C7.6 16.5 6 18 6 20v6Z"/>
+          <path d="M9 16.5v-3M16 16.5v-4M23 16.5v-3"/>
+          <circle cx="9" cy="11" r="1.1" fill="currentColor" stroke="none"/>
+          <circle cx="16" cy="10" r="1.1" fill="currentColor" stroke="none"/>
+          <circle cx="23" cy="11" r="1.1" fill="currentColor" stroke="none"/>
+          <path d="M6 21.5c2.2 1.6 4.4 1.6 6.6 0 2.2 1.6 4.4 1.6 6.7 0 2.2 1.6 4.5 1.6 6.7 0"/>
+        </svg>
+      </span>
+      <span class="brand__txt">Моя<em>кондитерская</em></span>
+    </div>
+    <span class="adm-hdr__ttl">Журнал модели</span>
+    <a class="adm-link" href="admin.html">Админ-панель</a>
+    <button class="adm-link" type="button" id="logRefresh">Обновить</button>
+    <button class="adm-link" type="button" id="logClear">Очистить</button>
+  </div>
+</header>
+
+<main id="main" class="wrap adm">
+  <section class="panel" aria-labelledby="logTtl">
+    <div class="panel__hdr">
+      <h1 class="panel__ttl" id="logTtl">Последние 20 обменов с моделью</h1>
+      <span class="adm-note" id="logSum" aria-live="polite"></span>
+    </div>
+    <p class="board__lead">
+      Журнал хранится в этом браузере — там, где помощник работал с моделью (обычно
+      <code>http://localhost:4175</code> с запущенной Ollama). Для каждого вопроса видно: что отправили,
+      что вернула модель, сколько было попыток и сработал ли откат на сценарий. Нажмите на строку,
+      чтобы увидеть сырой ответ.
+    </p>
+    <div id="logList" class="llog"></div>
+  </section>
+</main>
+
+<script src="js/llm-log.js?v=1"></script>
+</body>
+</html>

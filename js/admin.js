@@ -124,6 +124,7 @@
   };
   /* с базой владелец видит имя и телефон; в демо — «Покупатель №…» */
   const who = o => {
+    if (exampleView) return 'Покупатель №' + o.no;
     if (DB) {
       const tel = String(o.phone || '').replace(/[^\d+]/g, '');
       return esc(o.name || 'Покупатель') + (o.phone ? '<br><a href="tel:' + esc(tel) + '">' + esc(o.phone) + '</a>' : '');
@@ -210,13 +211,71 @@
   });
 
   /* ───────── запуск: демо — сразу; база — после входа владельца ───────── */
-  const main = $('#main'), refresh = $('#resetDemo');
+  const main = $('#main'), refresh = $('#resetDemo'), bar = $('.adm-bar');
   const setState = st => { main.dataset.state = st; };
   let pollT = 0;
 
+  /* надписи страницы: пример или настоящая база */
+  function setLabels(real) {
+    $('#admTag').hidden = real;
+    $('#chartNote').textContent = real ? 'по заказам из базы, без отменённых' : 'Пример данных';
+    $('#chartCap').textContent = real ? 'Заказы за последние 12 месяцев — по дате оформления' : 'Пример данных — заказы за последние 12 месяцев';
+    $('#privacyNote').textContent = real ? 'Имена, телефоны и адреса видит только владелец после входа' : 'Личные данные видит только владелец';
+    $('#admFoot').textContent = real ? 'Админ-панель. Блоки «Уведомления» и «Что можно менять» пока показаны как пример.'
+                                     : 'Режим демонстрации: все цифры — пример.';
+  }
+
+  /* ───────── «Посмотреть пример» — без входа и без единого запроса к базе ───────── */
+  let exampleView = false;
+  function exampleOrders() {
+    const h = 3600e3, d = 24 * h, now = Date.now(), at = ms => new Date(now - ms).toISOString();
+    const P = id => (typeof PRODUCTS !== 'undefined' && PRODUCTS.find(p => p.id === id)) || { perKg: 0, name: id };
+    const rows = [
+      [1048, 'velvet',        2.5, 'pickup',   'new',    6 * h,          'Побольше ягод'],
+      [1047, 'choco-caramel', 3,   'delivery', 'new',    20 * h,         'Добавить шоколадную крошку'],
+      [1046, 'pistachio',     2,   'pickup',   'ready',  d + 5 * h,      ''],
+      [1045, 'dino',          2,   'delivery', 'ready',  2 * d + h,      'Три фигурки динозавров'],
+      [1044, 'velvet',        2,   'pickup',   'done',   2 * d + 4 * h,  'Надпись «С днём рождения!»'],
+      [1043, 'mango',         1.5, 'pickup',   'done',   3 * d + 6 * h,  ''],
+      [1042, 'cupcakes-set',  0.9, 'pickup',   'done',   4 * d + 2 * h,  ''],
+      [1041, 'basque',        1.5, 'delivery', 'cancel', 5 * d + 3 * h,  '']
+    ];
+    return rows.map(r => ({
+      no: r[0], example: true, created: at(r[5]), statusAt: at(r[5] - h), dlv: r[3], status: r[4],
+      items: [{ id: r[1], name: P(r[1]).name, w: r[2], qty: 1, note: r[6] }],
+      total: Math.round(P(r[1]).perKg * r[2])
+    }));
+  }
+  function enterExample() {
+    exampleView = true;
+    clearInterval(pollT);
+    bar.hidden = false;
+    bar.className = 'adm-bar adm-bar--example';
+    bar.textContent = 'Режим демонстрации. Все цифры — пример. Настоящие заказы видит только владелец после входа.';
+    setLabels(false);
+    refresh.hidden = true;
+    $('#signOut').hidden = false;
+    $('#signOut').textContent = 'Закрыть пример';
+    stats = { orders: EXAMPLE_ORDERS, revenue: EXAMPLE_REVENUE, clients: EXAMPLE_CLIENTS, example: true };
+    orders = exampleOrders();
+    setState('dash');
+    renderTiles(); chart(); lastW = $('#chart').clientWidth;
+    renderHistory();
+    $('#sumTtl').setAttribute('tabindex', '-1'); $('#sumTtl').focus();
+  }
+
   async function enterDash() {
+    exampleView = false;
+    // зелёная плашка «Подключена база» — только после входа владельца
+    bar.hidden = false;
+    bar.className = 'adm-bar adm-bar--db';
+    bar.textContent = 'Подключена база: здесь настоящие заказы. Имена и телефоны покупателей видит только владелец.';
+    document.title = 'Админ-панель — Моя кондитерская';
+    setLabels(true);
+    refresh.hidden = false;
     setState('dash');
     $('#signOut').hidden = false;
+    $('#signOut').textContent = 'Выйти';
     await load();
     clearInterval(pollT);
     pollT = setInterval(() => { if (!document.hidden) load(); }, 30000);   // новые заказы — без перезагрузки
@@ -238,15 +297,9 @@
     refresh.addEventListener('click', () => { O.resetExamples(); load(); });
     load();
   } else {
-    $('.adm-bar').innerHTML = 'Подключена база: здесь настоящие заказы. Имена и телефоны покупателей видит только владелец.';
-    $('.adm-bar').classList.add('adm-bar--db');
-    document.title = 'Админ-панель — Моя кондитерская';
-    $('#admTag').hidden = true;
-    $('#chartNote').textContent = 'по заказам из базы, без отменённых';
-    $('#chartCap').textContent = 'Заказы за последние 12 месяцев — по дате оформления';
-    $('#privacyNote').textContent = 'Имена, телефоны и адреса видит только владелец после входа';
-    $('#admFoot').textContent = 'Админ-панель. Блоки «Уведомления» и «Что можно менять» пока показаны как пример.';
+    bar.hidden = true;                                   // до входа плашки нет: ни «база», ни «пример»
     refresh.textContent = 'Обновить';
+    $('#lgDemo').addEventListener('click', enterExample);
     refresh.addEventListener('click', load);
     $('#loginForm').addEventListener('submit', async e => {
       e.preventDefault();
@@ -269,9 +322,14 @@
     });
     $('#signOut').addEventListener('click', async () => {
       clearInterval(pollT);
-      try { await O.signOut(); } catch (e) { console.error(e); }
-      orders = []; $('#signOut').hidden = true;
+      if (exampleView) {                                 // из примера — просто назад к входу, база не трогается
+        exampleView = false;
+      } else {
+        try { await O.signOut(); } catch (e) { console.error(e); }
+      }
+      orders = []; $('#signOut').hidden = true; bar.hidden = true;
       setState('login');
+      $('#lgEmail').focus();
     });
     $('#retryDb').addEventListener('click', gate);
     gate();

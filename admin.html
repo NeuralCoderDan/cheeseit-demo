@@ -14,7 +14,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap">
 <link rel="stylesheet" href="css/styles.css?v=13">
-<link rel="stylesheet" href="css/admin.css?v=10">
+<link rel="stylesheet" href="css/admin.css?v=12">
 <script>
   (function () {
     try {
@@ -51,6 +51,7 @@
     </div>
     <span class="adm-hdr__ttl">Админ-панель <span class="adm-tag" id="admTag">демо</span></span>
     <a class="adm-link" href="kitchen.html">Кухня</a>
+    <a class="adm-link" href="llm-log.html">Журнал модели</a>
     <a class="adm-link" href="./">На сайт</a>
     <button class="adm-link" type="button" id="ownerOff" hidden>Выйти из режима владельца</button>
     <button class="adm-link" type="button" id="signOut" hidden>Выйти</button>
@@ -76,6 +77,8 @@
       <label class="field"><span>Пароль</span><input id="lgPass" type="password" autocomplete="current-password" required></label>
       <p class="gate__err" id="lgErr" role="alert" hidden></p>
       <button class="btn btn--lg" type="submit" id="lgGo">Войти</button>
+      <button class="btn btn--lg btn--ghost" type="button" id="lgDemo">Посмотреть пример</button>
+      <p class="gate__hint">Пример открывается без входа: все цифры придуманы, к базе заказов страница не обращается.</p>
     </form>
   </section>
   <section class="panel gate gate--notowner" aria-labelledby="noTtl">
@@ -196,6 +199,6 @@
 <script src="js/config.js?v=4"></script>
 <script src="js/data.js?v=4"></script>
 <script src="js/orders.js?v=4"></script>
-<script src="js/admin.js?v=9"></script>
+<script src="js/admin.js?v=10"></script>
 </body>
 </html>

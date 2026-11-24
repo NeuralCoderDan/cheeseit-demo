@@ -35,7 +35,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Playfair+Display:wght@500;600;700&display=swap">
-<link rel="stylesheet" href="css/styles.css?v=13">
+<link rel="stylesheet" href="css/styles.css?v=14">
 <link rel="stylesheet" href="css/assistant.css?v=5">
 <link rel="stylesheet" href="css/cart.css?v=7">
 <script>
@@ -74,6 +74,7 @@
 
     <nav class="nav" aria-label="Основная навигация">
       <a href="#catalog">Каталог</a>
+      <a href="#reviews">Отзывы</a>
       <a href="#how">Как заказать</a>
       <a href="#delivery">Доставка</a>
       <a href="#find">Как нас найти</a>
@@ -149,9 +150,9 @@
       <p class="eyebrow">Кондитерская · демо-версия сайта</p>
       <h1 class="hero__title">Торты, которые <em>помнят</em> после праздника</h1>
       <p class="hero__lead">
-        Собираем торт под ваш повод: вкус, вес и декор выбираете вы.
-        Ниже — каталог с фильтром по категориям и калькулятором, который подскажет
-        вес под количество гостей.
+        Так будет выглядеть сайт вашей кондитерской: покупатель выбирает торт,
+        вес и декор, калькулятор подсказывает вес под число гостей, а заказ
+        попадает в админку.
       </p>
       <div class="hero__btns">
         <a class="btn btn--lg" href="#catalog">Смотреть каталог</a>
@@ -173,6 +174,21 @@
 
 <!-- ───────────────── КАТАЛОГ ───────────────── -->
 <main>
+<!-- ───────────────── БЛОК ДОВЕРИЯ ─────────────────
+     Значения — заглушки. Подставятся автоматически: заказы — из базы,
+     оценка, число отзывов и год — из карточки организации. Ничего не выдумывать. -->
+<section class="trust" aria-label="Кондитерская в цифрах">
+  <div class="wrap">
+    <dl class="trust__grid">
+      <div class="trust__item"><dt>Заказов выполнено</dt><dd class="ph-text">___</dd></div>
+      <div class="trust__item"><dt>Оценка</dt><dd><span class="ph-text">___</span> из 5</dd></div>
+      <div class="trust__item"><dt>Отзывов</dt><dd class="ph-text">___</dd></div>
+      <div class="trust__item"><dt>Работаем</dt><dd>с <span class="ph-text">____</span> года</dd></div>
+    </dl>
+    <p class="trust__note">Цифры подставятся автоматически из базы заказов и карточки организации</p>
+  </div>
+</section>
+
 <section class="section" id="catalog">
   <div class="wrap">
     <header class="sec-head">
@@ -209,6 +225,34 @@
   </div>
 </section>
 
+<!-- ───────────────── ОТЗЫВЫ ПОКУПАТЕЛЕЙ ───────────────── -->
+<section class="section section--alt" id="reviews">
+  <div class="wrap">
+    <header class="sec-head">
+      <div>
+        <p class="eyebrow">Отзывы</p>
+        <h2 class="sec-title">Отзывы покупателей</h2>
+      </div>
+    </header>
+    <div class="reviews" id="yandexReviews">
+      <!--
+        СЮДА — КОД ВИДЖЕТА ОТЗЫВОВ ЯНДЕКС.КАРТ.
+        Как получить: Яндекс Бизнес → карточка организации → «Виджет с отзывами»
+        (или yandex.ru/sprav → ваша организация → Продвижение → Виджеты) → скопировать код
+        и вставить его вместо блока <div class="reviews__ph"> ниже. Отзывы будут настоящие
+        и обновятся сами. Выдуманные отзывы сюда не писать.
+      -->
+      <div class="reviews__ph">
+        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+          <path d="M8 10h32a3 3 0 0 1 3 3v18a3 3 0 0 1-3 3H20l-8 7v-7H8a3 3 0 0 1-3-3V13a3 3 0 0 1 3-3Z"/>
+          <path d="m17 18 2 4 4.5.6-3.3 3 .8 4.4-4-2.2-4 2.2.8-4.4-3.3-3 4.5-.6 2-4Z" transform="translate(7 0)"/>
+        </svg>
+        <p>Здесь встанет виджет отзывов Яндекс.Карт — реальные отзывы, обновляются сами</p>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ───────────────── КАК ЗАКАЗАТЬ ───────────────── -->
 <section class="section section--alt" id="how">
   <div class="wrap">
@@ -216,14 +260,14 @@
       <div>
         <p class="eyebrow">Процесс</p>
         <h2 class="sec-title">Как заказать</h2>
-        <p class="sec-lead">Четыре шага — от сообщения до торта на столе.</p>
+        <p class="sec-lead">Так заказ будет проходить у вашей кондитерской — четыре шага.</p>
       </div>
     </header>
     <ol class="steps">
-      <li><span class="steps__n">01</span><h3>Выбираете торт</h3><p>Или описываете идею своими словами: повод, вкусы, пожелания по декору.</p></li>
-      <li><span class="steps__n">02</span><h3>Считаем вес и цену</h3><p>Подбираем вес под число гостей, согласовываем итоговую стоимость.</p></li>
-      <li><span class="steps__n">03</span><h3>Готовим</h3><p>Собираем торт к согласованной дате.</p></li>
-      <li><span class="steps__n">04</span><h3>Отдаём или привозим</h3><p>Самовывоз или доставка — по условиям, которые укажет владелец.</p></li>
+      <li><span class="steps__n">01</span><h3>Покупатель выбирает торт</h3><p>Или описывает идею своими словами помощнику: повод, вкусы, пожелания по декору.</p></li>
+      <li><span class="steps__n">02</span><h3>Вес и цена</h3><p>Сайт подсказывает вес под число гостей, итоговую стоимость владелец подтверждает сам.</p></li>
+      <li><span class="steps__n">03</span><h3>Приготовление</h3><p>Кондитеры видят заказ на странице «Кухня» и отмечают, когда торт готов.</p></li>
+      <li><span class="steps__n">04</span><h3>Выдача или доставка</h3><p>Покупатель видит в «Моих заказах», что можно забирать. Условия доставки задаёт владелец.</p></li>
     </ol>
   </div>
 </section>
@@ -379,11 +423,11 @@
           <p class="wtotal" aria-live="polite"><strong id="wTotal"></strong><small>цена ориентировочная</small></p>
         </div>
 
-        <!-- пожелания к базовому торту: попадут в заказ, кондитер увидит их в админке -->
+        <!-- пожелания к базовому торту: попадут в заказ и видны в админке и на «Кухне» -->
         <label class="wish">
           <span class="h-mini">Пожелания к торту</span>
           <textarea id="mWish" rows="2" maxlength="200" placeholder="Например: побольше ягод, надпись «С днём рождения!»"></textarea>
-          <small>Необязательно. Кондитер увидит это в заказе.</small>
+          <small>Необязательно. У настоящей кондитерской пожелание будет видно кондитеру в заказе.</small>
         </label>
 
         <div class="modal__cols">
@@ -532,11 +576,11 @@
 </script>
 
 <script src="js/config.js?v=4"></script>
-<script src="js/data.js?v=4"></script>
+<script src="js/data.js?v=5"></script>
 <script src="js/orders.js?v=4"></script>
-<script src="js/app.js?v=9"></script>
-<script src="js/cart.js?v=5"></script>
-<script src="js/account.js?v=2"></script>
-<script src="js/assistant.js?v=14"></script>
+<script src="js/app.js?v=10"></script>
+<script src="js/cart.js?v=6"></script>
+<script src="js/account.js?v=3"></script>
+<script src="js/assistant.js?v=19"></script>
 </body>
 </html>

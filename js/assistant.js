@@ -1272,44 +1272,67 @@
     } finally { t.done(); }
   })();
 
-  /* правила — те же, что у сценария */
+  /* правила — те же, что у сценария; примеры важнее запретов — маленькая модель учится по образцу */
+  const NO_TOPIC = 'Это не моя тема — я помогаю выбрать торт. Подобрать?';
   function systemPrompt() {
     const catalog = ALL.map(p =>
       p.id + '|' + p.name + '|' + MK.catName(p.cat) + '|' + (p.flavors.length ? p.flavors.join(',') : '-') +
       '|' + MK.weightOptions(p)[0] + '|' + p.perKg).join('\n');
+    const ex = (q, reply, cakes, u) => 'Пользователь: ' + q + '\nОтвет: ' + JSON.stringify({ reply: reply, cakes: cakes, understood: u });
+    const none = { guests: null, cakes: null, budget: null };
     return [
-      'Ты — помощник кондитерской «Моя кондитерская» на сайте. Помогаешь выбрать торт из каталога ниже. Отвечай по-русски, коротко: 1–3 предложения, дружелюбно, без канцелярита.',
+      'Ты — помощник демо-сайта кондитерской. Помогаешь выбрать торт из каталога ниже. Отвечай по-русски, коротко: 1–2 предложения, дружелюбно.',
       '',
       'ПРАВИЛА:',
       '1. Гости: до 7 человек — один торт; 8–15 — один торт побольше; 16–30 — предложи два разных торта и честно скажи, что два обычно немного дороже одного большого; больше 30 — несколько тортов или многоярусный, на выбор.',
-      '2. Если человек сам назвал число тортов — это закон, подбирай ровно столько. Бюджет — на все торты вместе. Никогда не поднимай бюджет за человека и не уговаривай взять дороже.',
-      '3. Не торопи («успейте», «осталось мало» — нельзя). Не выдумывай скидки, акции, подарки, промокоды.',
-      '4. Ты НЕ знаешь состав, аллергены, глютен, сахар, лактозу, калорийность, хранение, сроки приготовления, предоплату, отмену, доставку за город. На такие вопросы отвечай: «Про это лучше спросить кондитера — я помогаю с выбором торта.» и предложи подобрать торт. Ничего не выдумывай.',
-      '5. На вопросы не про торты (политика, погода, новости и т. п.) отвечай: «Про это лучше спросить кондитера — я помогаю с выбором торта. Подобрать?» и не отвечай по существу.',
-      '6. Про адрес, телефон, часы работы: «Это демо-сайт, реальные контакты владелец заполнит сам.»',
-      '7. НЕ пиши в reply цены, рубли, вес, килограммы и суммы — карточки с ценой и весом сайт покажет сам по id из cakes.',
-      '8. В cakes — только id из каталога, 0–3 штуки, в порядке рекомендации. Учитывай вкус, повод и бюджет (цена торта ≈ цена за кг × вес; вес ≈ 0,18 кг на человека, не меньше минимального). Если чего-то не хватает для подбора — сначала спроси (сколько гостей, какой вкус, есть ли бюджет), cakes оставь пустым.',
-      '9. Если вопрос не про подбор (пункты 4–6) — cakes пустой.',
-      '10. В understood — только то, что человек сказал явно: guests (число гостей), cakes (число тортов), budget (максимум в рублях). Чего не было — null.',
+      '2. Если человек сам назвал число тортов — подбирай ровно столько. Бюджет — на все торты вместе. Не поднимай бюджет и не уговаривай взять дороже. Не торопи. Не выдумывай скидки и акции.',
+      '3. Ты НЕ знаешь состав, аллергены, глютен, сахар, хранение, сроки, доставку, оплату, контакты. На такое: «Про это лучше спросить кондитера — я помогаю с выбором торта.» Ничего не выдумывай.',
+      '4. Вопрос не про торты: «' + NO_TOPIC + '»',
+      '5. Это демонстрационный сайт: не обещай, что кто-то позвонит, свяжется, приготовит или доставит торт.',
+      '6. В reply НИКОГДА не пиши цифры и числа: ни цены, ни рубли, ни вес, ни килограммы, ни сумму, ни порции. Всё это сайт посчитает сам по id из cakes.',
+      '7. cakes — только id из каталога, 0–3 штуки. Подбирай по вкусу, поводу и бюджету (цена ≈ цена за кг × вес; вес ≈ 0,18 кг на человека, не меньше минимального). Не хватает данных — спроси (гости, вкус, бюджет), cakes пустой.',
+      '8. understood — только то, что человек сказал явно: guests, cakes (число тортов), budget (максимум в рублях). Иначе null.',
       '',
-      'ОТВЕЧАЙ ТОЛЬКО JSON без пояснений:',
-      '{"reply": "текст для человека", "cakes": ["id"], "understood": {"guests": null, "cakes": null, "budget": null}}',
+      'ОТВЕЧАЙ ТОЛЬКО JSON: {"reply": "...", "cakes": ["id"], "understood": {"guests": null, "cakes": null, "budget": null}}',
+      '',
+      'ПРИМЕРЫ:',
+      ex('мне нужно 3 торта гостей 15 бюджет 15 000',
+         'Хорошо: три разных торта на всех гостей в рамках бюджета. Вот варианты — общую сумму сайт посчитает ниже.',
+         ['velvet', 'pistachio', 'mango'], { guests: 15, cakes: 3, budget: 15000 }),
+      ex('не дороже тысяч пяти', 'Понял, держимся этого бюджета. Сколько будет гостей?', [], { guests: null, cakes: null, budget: 5000 }),
+      ex('а есть без глютена?', 'Про это лучше спросить кондитера — я помогаю с выбором торта. Подобрать?', [], none),
+      ex('кто будет президентом?', NO_TOPIC, [], none),
       '',
       'КАТАЛОГ (id|название|категория|вкус|мин. вес, кг|цена за кг, ₽):',
       catalog
     ].join('\n');
   }
 
-  /* история диалога — последние реплики, чтобы модель помнила, о чём говорили */
-  function history() {
-    return state.entries.filter(e => e.r === 'bot' || e.r === 'me').slice(-10)
-      .map(e => ({ role: e.r === 'me' ? 'user' : 'assistant', content: String(e.t).slice(0, 600) }));
+  /* короткая память: последние 4 реплики + уже понятые факты, правила — ещё раз в конце */
+  function facts() {
+    const f = F();
+    return {
+      guests: f.guests || null,
+      cakes: f.cakes || null,
+      flavors: (f.flavors || []).filter(k => FLAVORS[k]).map(k => FLAVORS[k].label),
+      budget: f.budget && f.budget.max ? f.budget.max : null
+    };
+  }
+  function messagesFor() {
+    const hist = state.entries.filter(e => e.r === 'bot' || e.r === 'me').slice(-4)
+      .map(e => ({ role: e.r === 'me' ? 'user' : 'assistant', content: String(e.t).slice(0, 400) }));
+    const reminder = 'Уже известно: ' + JSON.stringify(facts()) + '. Напоминание: ответ — только JSON {"reply","cakes","understood"}; ' +
+                     'в reply нет цифр, цен и веса; состав, аллергены, доставка, контакты — «спросить кондитера»; ' +
+                     'не про торты — «' + NO_TOPIC + '»; cakes — только id из каталога.';
+    return [{ role: 'system', content: systemPrompt() }].concat(hist, [{ role: 'system', content: reminder }]);
   }
 
-  const LLM_OPTS = { temperature: 0.3, num_ctx: 4096 };
+  /* настройки запроса: одинаковые для прогрева и вопросов, чтобы Ollama переиспользовала прочитанную инструкцию */
+  const LLM_OPTS = { temperature: 0.15, top_p: 0.9, num_ctx: 4096 };
+  const MAX_TOKENS = 200;                               // ответ — 1–2 предложения, длиннее не нужно
+  const MAX_REPLY = 600;
   const KEEP = '30m';                                   // модель не выгружается из памяти 30 минут
-  /* прогрев: модель загружается в память и один раз читает инструкцию —
-     дальше вопросы отвечаются быстрее (Ollama переиспользует прочитанное начало) */
+  /* прогрев: модель загружается в память и один раз читает инструкцию */
   function warmUp() {
     try {
       fetch(OLLAMA + '/api/chat', {
@@ -1321,61 +1344,141 @@
     } catch (e) {}
   }
 
-  const intOr = (v, lo, hi) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n >= lo && n <= hi ? n : null; };
-
-  async function askModel() {
-    if (hooks.llmFail === 'error') throw new Error('test: модель недоступна');
-    const t = withTimeout(LLM_TIMEOUT_MS);
-    let content;
+  /* ── журнал для отладки: последние 20 обменов, видно на странице llm-log.html ── */
+  const LOG_KEY = 'mk-llm-log', LOG_MAX = 20;
+  function logPush(e) {
     try {
-      const r = await fetch(OLLAMA + '/api/chat', {
-        method: 'POST', signal: t.signal,
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          model: MODEL, stream: false, format: 'json', keep_alive: KEEP,
-          options: Object.assign({ num_predict: 220 }, LLM_OPTS),
-          messages: [{ role: 'system', content: systemPrompt() }].concat(history())
-        })
-      });
-      if (!r.ok) throw new Error('ollama ' + r.status);
-      content = (await r.json()).message.content;
+      const list = JSON.parse(localStorage.getItem(LOG_KEY) || '[]');
+      list.push(e);
+      localStorage.setItem(LOG_KEY, JSON.stringify(list.slice(-LOG_MAX)));
+    } catch (err) {}
+  }
+
+  /* число не принимаем, если пришла строка вроде «много» или «15 000» с пробелом — просто игнорируем */
+  const intOr = (v, lo, hi) => (typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi ? Math.round(v) : null);
+
+  /* модель не считает: «6 500 ₽», «около 2,5 кг», «12 порций» из reply вырезаются */
+  const NUM_UNIT = /(?:(?<![а-яё])(?:от|до|за|около|примерно|приблизительно|всего|на)\s+)?≈?\s*\d[\d\s  .,]*\s*(?:₽|руб(?:лей|ля|ль|\.)?|р\.|килограмм[а-яё]*|кг|грамм[а-яё]*|гр?(?![а-яё])|порци[а-яё]*)/gi;   // [а-яё] — \w в JS не видит кириллицу
+  const ID_IN_PARENS = new RegExp('\\s*\\((?:' + ALL.map(p => p.id.replace(/[-]/g, '\\-')).join('|') + ')\\)', 'g');   // «(bunny)» — служебный id
+  function stripNumbers(t) {
+    const out = t.replace(NUM_UNIT, '').replace(ID_IN_PARENS, '')
+      .replace(/\(\s*\)/g, '').replace(/\s+([,.!?;:])/g, '$1').replace(/([,:;—–-])\s*([.!?])/g, '$2')
+      .replace(/\s{2,}/g, ' ').trim();
+    return { text: out, changed: out !== t };
+  }
+
+  async function callModel(messages, signal) {
+    if (hooks.llmFail === 'error') throw new Error('test: модель недоступна');
+    const r = await fetch(OLLAMA + '/api/chat', {
+      method: 'POST', signal: signal, headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model: MODEL, stream: false, format: 'json', keep_alive: KEEP,
+        options: Object.assign({ num_predict: MAX_TOKENS }, LLM_OPTS), messages: messages })
+    });
+    if (!r.ok) throw new Error('ollama ' + r.status);
+    return String((await r.json()).message.content || '');
+  }
+
+  /* один вопрос к модели: не JSON — одна повторная попытка; общий таймаут 20 с на обе */
+  async function askModel(text, log) {
+    const messages = messagesFor();
+    log.sent = { messages: messages.length - 2, facts: facts() };
+    const t = withTimeout(LLM_TIMEOUT_MS);
+    let j = null;
+    try {
+      for (let attempt = 0; attempt < 2 && !j; attempt++) {
+        log.tries = attempt + 1;
+        const content = await callModel(messages, t.signal);
+        log.raw.push(content.slice(0, 1500));
+        try { j = JSON.parse(hooks.llmFail === 'badjson' ? 'не json {' : content); }
+        catch (e) { j = null; }
+        if (j && typeof j !== 'object') j = null;
+      }
     } finally { t.done(); }
-    if (hooks.llmFail === 'badjson') content = 'не json {';
-    const j = JSON.parse(content);                       // не JSON — исключение, откат на сценарий
-    const reply = typeof j.reply === 'string' ? j.reply.replace(/\s+/g, ' ').trim().slice(0, 600) : '';
-    if (!reply) throw new Error('модель: пустой reply');
-    const cakes = (Array.isArray(j.cakes) ? j.cakes : [])
-      .map(String).filter((id, i, a) => ALL.some(p => p.id === id) && a.indexOf(id) === i).slice(0, 3);   // чужие id — пропускаем
+    if (!j) return { ok: false, reason: 'не JSON дважды' };
+    const rawReply = typeof j.reply === 'string' ? j.reply.replace(/\s+/g, ' ').trim() : '';
+    if (!rawReply) return { ok: false, reason: 'пустой reply' };
+    if (rawReply.length > MAX_REPLY) return { ok: false, reason: 'reply длиннее ' + MAX_REPLY + ' символов' };
+    const st = stripNumbers(rawReply);
+    if (!st.text) return { ok: false, reason: 'после вырезания чисел reply пустой' };
+    const asked = Array.isArray(j.cakes) ? j.cakes.map(String) : [];
+    const cakes = asked.filter((id, i, a) => ALL.some(p => p.id === id) && a.indexOf(id) === i).slice(0, 3);   // чужие id — молча выбрасываем
     const u = j.understood && typeof j.understood === 'object' ? j.understood : {};
-    return { reply: reply, cakes: cakes,
+    log.dropped = asked.filter(id => !ALL.some(p => p.id === id));
+    log.stripped = st.changed;
+    return { ok: true, reply: st.text, cakes: cakes,
              understood: { guests: intOr(u.guests, 1, 300), cakes: intOr(u.cakes, 1, 10), budget: intOr(u.budget, 300, 1000000) } };
   }
 
-  /* темы, где модель может навредить выдумкой: аллергены, состав, диеты, здоровье */
-  const RISKY = /глютен|аллерг|лактоз|без сахар|сахарозам|диабет|орех|арахис|состав|ингредиент|калори|ккал|веган|постн|халял|кошер|беремен/;
+  /* ── фильтр ДО модели: в этих темах модель не вызывается вообще — готовый честный ответ ── */
+  const GUARDS = [
+    { kind: 'аллергены', re: /глютен|аллерг|лактоз|сахар|диабет|состав|ингредиент|орех|арахис|калори|ккал|веган/,
+      say: ['Про состав и аллергены лучше спросить кондитера — я их не знаю и гадать не буду. Подобрать торт по вкусу?',
+            'Состав и аллергены знает только кондитер — я не буду гадать. Помочь с выбором торта?'] },
+    { kind: 'хранение', re: /срок годност|хран[иея]т|хранени|холодильн/,
+      say: ['Про хранение и срок годности лучше спросить кондитера — я помогаю с выбором торта.',
+            'Как хранить торт, подскажет кондитер — я помогаю только с выбором.'] },
+    { kind: 'контакты', re: /адрес|телефон|позвон|где вы|где наход|режим работ|часы работ|контакт/,
+      say: ['Это демо-сайт, реальные контакты владелец заполнит сам.',
+            'Контактов на демо-сайте нет — их заполнит владелец.'] },
+    { kind: 'доставка и оплата', re: /доставк|оплат|предоплат/,
+      say: ['Условия доставки и оплаты владелец заполнит сам — на демо-сайте их пока нет.',
+            'Доставку и оплату на демо-сайте не настроить — это заполнит владелец.'] },
+    { kind: 'скидки', re: /скидк|акци[яиюей]|промокод|бонус/,
+      say: ['Про скидки и акции ничего не скажу — это решает владелец. А с выбором торта помогу.',
+            'Скидки и акции решает владелец — я их не знаю. Подобрать торт?'] }
+  ];
+  async function canned(g) {
+    await sayOneOf(g.say);
+    return chips(/^(start|browse|done)$/.test(state.ask) ? [['Подобрать торт', 'choose'], ['Сколько стоит торт?', 'price']] : chipsFor(state.ask));
+  }
 
   async function viaModelOrScript(raw, echo) {
     if (llm.state === 'checking') { try { await llm.ready; } catch (e) { llm.state = 'off'; } }
     const text = clip(raw);
-    // пустое, смайлики, «начать заново» и вопросы, где нельзя ошибиться (состав, аллергены, сроки,
-    // скидки, контакты), — честный ответ сценария; модели такие вопросы не доверяем
     const nt = norm(text);
+    // пустое, смайлики, «начать заново» — сценарий
+    // вопросы о цене — тоже сценарий: он считает по каталогу, а модели считать нельзя
     if (llm.state !== 'on' || !text || EMOJI_ONLY(text) || INTENT.restart.test(nt) ||
-        INTENT.composition.test(nt) || INTENT.discount.test(nt) || INTENT.lead.test(nt) || INTENT.contacts.test(nt) ||
-        RISKY.test(nt)) return onText(raw, echo);
+        INTENT.price.test(nt) || /самы[йе] (дешев|недорог|дорог)/.test(nt)) return onText(raw, echo);
+    const log = { at: new Date().toISOString(), q: text, raw: [], tries: 0, fallback: null, ms: 0 };
+    // 1 — опасные темы: модель не вызываем вообще
+    const g = GUARDS.find(x => x.re.test(nt)) || (INTENT.lead.test(nt) ? { kind: 'сроки', say: [BAKER + ' Подобрать?', BAKER] } : null);
+    if (g) {
+      me(text, echo);
+      log.filter = g.kind; log.fallback = 'фильтр до модели — модель не вызывалась';
+      logPush(log);
+      return canned(g);
+    }
     me(text, echo);
+    const t0 = Date.now();
     let res = null;
-    try { res = await askModel(); }
-    catch (err) { console.error('[assistant] модель не ответила — отвечает сценарий', err); }
-    if (zombie) return;
-    if (!res || TECH.test(res.reply.replace(/[\s  ]+/g, ' ')) || RISKY.test(norm(res.reply))) {
+    try { res = await askModel(text, log); }
+    catch (err) {
+      res = { ok: false, reason: err && err.name === 'AbortError' ? 'таймаут 20 с' : 'модель недоступна' };
+      console.error('[assistant] модель не ответила — отвечает сценарий', err);
+    }
+    log.ms = Date.now() - t0;
+    if (zombie) { log.fallback = 'ответ опоздал'; logPush(log); return; }
+    if (res.ok && (TECH.test(res.reply.replace(/[\s  ]+/g, ' ')) || GUARDS.some(x => x.kind === 'аллергены' && x.re.test(norm(res.reply))))) {
+      res = { ok: false, reason: 'в ответе опасная тема или технический текст' };
+    }
+    if (!res.ok) {
+      log.fallback = res.reason;
+      logPush(log);
       return onText(text, false);                         // откат: человек видит обычный ответ сценария
     }
+    log.reply = res.reply; log.cakes = res.cakes; log.understood = res.understood;
+    logPush(log);
+
     // факты из ответа модели — в общее состояние, чтобы кнопки сценария продолжали с того же места
-    const f = F(), u = res.understood;
-    if (u.guests) setGuests(u.guests, false);
-    if (u.cakes) setCakes(u.cakes);
-    if (u.budget) setBudget({ max: u.budget });
+    const f = F(), u = res.understood, x = extract(text, state.ask);
+    const guests = x.guests != null ? x.guests : u.guests;
+    const budget = x.budget && x.budget.max ? x.budget.max : u.budget;
+    if (guests) setGuests(guests, false);
+    if (x.cakes != null) setCakes(x.cakes);              // модель часто «додумывает» число тортов — его берём только из слов человека
+    if (budget) setBudget({ max: budget });
+    // просили конкретное число тортов — больше не показываем
+    if (f.cakesExplicit && f.cakes && res.cakes.length > f.cakes) res.cakes = res.cakes.slice(0, f.cakes);
     state.misses = 0;
     save();
 
@@ -1387,15 +1490,14 @@
     // набор — только если человек сам просил несколько тортов; иначе это варианты на выбор,
     // и каждый считается на всех гостей, без общей суммы
     const k = res.cakes.length, asSet = (f.cakes || 1) > 1 && k > 1;
-    const g = f.guests ? Math.max(1, asSet ? Math.ceil(f.guests / f.cakes) : f.guests) : null;
-    recs(res.cakes.map(id => ({ id: id, g: g, why: '' })), asSet || k < 2 ? '' : 'Варианты на выбор');
+    const gg = f.guests ? Math.max(1, asSet ? Math.ceil(f.guests / f.cakes) : f.guests) : null;
+    recs(res.cakes.map(id => ({ id: id, g: gg, why: '' })), asSet || k < 2 ? '' : 'Варианты на выбор');
     if (asSet) {
-      const opts = res.cakes.map(id => option(ALL.find(p => p.id === id), g || 1));
+      const opts = res.cakes.map(id => option(ALL.find(p => p.id === id), gg || 1));
       const sumAll = opts.reduce((t, o) => t + o.sum, 0), wAll = opts.reduce((t, o) => t + o.w, 0);
       let line = 'Вместе: ' + opts.map(o => num(o.sum)).join(' + ') + ' = ' + money(sumAll) + ', ' + kg(wAll) + '.';
       if (f.budget && f.budget.max) line += sumAll <= f.budget.max ? ' В бюджет ' + money(f.budget.max) + ' укладываемся.' : ' Это больше бюджета ' + money(f.budget.max) + ' на ' + money(sumAll - f.budget.max) + '.';
       await say(line);
-      // набор дороже бюджета — как в сценарии: предложить пересобрать на меньшее число тортов
       if (f.budget && f.budget.max && sumAll > f.budget.max) {
         state.pending = { kind: 'over', set: res.cakes.slice(), k: k };
         state.ask = 'over'; save();
@@ -1700,6 +1802,6 @@
     streamText: streamText, open: openChat, close: closeChat, reset: restart,
     _t: { extract, parseAmount, tokenize, pickSingle, combos, whyOne, whySlot, sizeNote, option, compare, P_MIN, P_MAX, INTENT,
           send: onText, chip: onChip, state: () => state, run: run, hooks: hooks, idle: () => chain,
-          llm: () => llm.state, llmReady: () => llm.ready, systemPrompt: systemPrompt }
+          llm: () => llm.state, llmReady: () => llm.ready, systemPrompt: systemPrompt, stripNumbers: stripNumbers, messagesFor: messagesFor }
   };
 })();

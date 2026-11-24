@@ -259,3 +259,30 @@ html[data-theme="light"] .gate__err { color: #b3243e; }
   .tbl__dlv  { grid-area: 4 / 1 / 5 / 3; color: var(--muted); font-size: .82rem; }
   .tbl__sum  { grid-area: 4 / 3; font-weight: 800; }
 }
+
+/* «Посмотреть пример»: оранжевая плашка и подсказка на экране входа */
+.adm-bar--example { background: #f39a3d; color: #1f1204; }   /* 8,9:1 */
+.adm-bar[hidden] { display: none; }
+.gate__hint { font-size: .8rem; color: var(--muted); }
+
+/* ───────── журнал модели ───────── */
+.llog { display: grid; gap: 8px; }
+.llog__item { border: 1px solid var(--border); border-left-width: 4px; border-radius: var(--r-sm); background: var(--surface-2); }
+.llog__item--ok       { border-left-color: #4fbf8a; }
+.llog__item--filter   { border-left-color: #5b8def; }
+.llog__item--fallback { border-left-color: #f39a3d; }
+.llog__item summary { list-style: none; cursor: pointer; padding: 10px 14px; display: grid; gap: 3px; }
+.llog__item summary::-webkit-details-marker { display: none; }
+.llog__t { font-size: .74rem; color: var(--muted); }
+.llog__q { font-size: .95rem; }
+.llog__badge { font-size: .78rem; font-weight: 700; }
+.llog__item--ok .llog__badge { color: #4fbf8a; }
+.llog__item--filter .llog__badge { color: #7aa4f5; }
+.llog__item--fallback .llog__badge { color: #f39a3d; }
+html[data-theme="light"] .llog__item--ok .llog__badge { color: #1d7a50; }
+html[data-theme="light"] .llog__item--filter .llog__badge { color: #2f5fc4; }
+html[data-theme="light"] .llog__item--fallback .llog__badge { color: #a8530a; }
+.llog__r { font-size: .88rem; }
+.llog__c { font-size: .8rem; color: var(--muted); }
+.llog__more { padding: 0 14px 12px; font-size: .84rem; display: grid; gap: 6px; }
+.llog__more pre { white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--surface); border: 1px solid var(--border); font-size: .78rem; }
