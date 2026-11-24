@@ -482,29 +482,65 @@
     $('#count').textContent = 'Найдено: ' + list.length + ' ' + plural(list.length, ['торт', 'торта', 'тортов']);
   }
 
-  /* ───────────────── переключатель колонок 2/3/4 ───────────────── */
-  let chosenCols = 3;
+  /* ───────────────── переключатель колонок ─────────────────
+     телефон (< 768px): 1 / 2 / 3, по умолчанию 2;
+     планшет и десктоп: 2 / 3 / 4, по умолчанию 3.
+     Выбор запоминается отдельно для узких и широких экранов. */
+  const COLS = {
+    narrow: { opts: [1, 2, 3], def: 2, key: 'mk-cols-narrow' },
+    wide:   { opts: [2, 3, 4], def: 3, key: 'mk-cols-wide' }
+  };
   const colBtns = $$('.cols button');
+  const isNarrow = () => window.innerWidth < 768;
+  let colMode = '';
+  let chosenCols = 3;
 
+  function loadCols(mode) {
+    const c = COLS[mode];
+    let n = c.def;
+    try { const v = Number(localStorage.getItem(c.key)); if (c.opts.includes(v)) n = v; } catch (e) {}
+    return n;
+  }
+  function saveCols(mode, n) {
+    try { localStorage.setItem(COLS[mode].key, String(n)); } catch (e) {}
+  }
+  function syncColBtns() {
+    const opts = COLS[colMode].opts;
+    colBtns.forEach((b, i) => {
+      b.dataset.cols = String(opts[i]);
+      b.textContent = String(opts[i]);
+      b.setAttribute('aria-label', opts[i] + (opts[i] === 1 ? ' колонка' : ' колонки'));
+      b.setAttribute('aria-pressed', String(opts[i] === chosenCols));
+    });
+  }
+  /* сколько колонок реально помещается на широком экране */
   function maxCols() {
     const w = window.innerWidth;
-    if (w <= 620) return 1;
     if (w <= 900) return 2;
     if (w <= 1180) return 3;
     return 4;
   }
   function applyCols() {
-    grid.style.setProperty('--cols', String(Math.min(chosenCols, maxCols())));
+    const mode = isNarrow() ? 'narrow' : 'wide';
+    if (mode !== colMode) { colMode = mode; chosenCols = loadCols(mode); syncColBtns(); }
+    const n = mode === 'narrow' ? chosenCols : Math.min(chosenCols, maxCols());
+    grid.style.setProperty('--cols', String(n));
+    /* узкий экран и 2–3 колонки — компактные карточки; 3 — только фото, название и цена */
+    grid.classList.toggle('is-compact', mode === 'narrow' && n >= 2);
+    grid.classList.toggle('is-mini', mode === 'narrow' && n >= 3);
   }
   /* смена колонок — через View Transitions: карточки плавно меняют размер и место */
   function setCols(n) {
+    if (n === chosenCols) return;
     chosenCols = n;
+    saveCols(colMode, n);
     colBtns.forEach(x => x.setAttribute('aria-pressed', String(Number(x.dataset.cols) === n)));
     if (reduced() || !document.startViewTransition) { applyCols(); return; }
     const cards = $$('.card', grid);
     cards.forEach(el => { el.style.viewTransitionName = 'card-' + el.dataset.id; });
     html.classList.add('vt-cols');
     const t = document.startViewTransition(applyCols);
+    t.ready.catch(() => {});   /* быстрый повторный клик пропускает прошлый переход — это не ошибка */
     t.finished.finally(() => {
       cards.forEach(el => { el.style.viewTransitionName = ''; });
       html.classList.remove('vt-cols');
