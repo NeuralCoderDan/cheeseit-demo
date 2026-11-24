@@ -1234,6 +1234,178 @@
     return miss();
   }
 
+  /* ═════════════════════ ЛОКАЛЬНАЯ МОДЕЛЬ (Ollama) ═════════════════════
+     AI_MODE в js/config.js: 'auto' — при загрузке один раз проверяем Ollama,
+     доступна и модель скачана → отвечает модель, иначе — сценарий;
+     'local' — всегда пробуем модель; 'script' — только сценарий.
+     Модель отвечает JSON: { reply, cakes:[id], understood:{guests,cakes,budget} }.
+     Цены, вес и суммы рисует НАШ код по id из data.js, а не модель.
+     Любая неудача (нет ответа за 20 с, не JSON, пустой ответ) — молча отвечает сценарий. */
+  const CFG = window.MK_CONFIG || {};
+  const AI_MODE = /^(auto|local|script)$/.test(CFG.AI_MODE) ? CFG.AI_MODE : 'auto';
+  const OLLAMA = String(CFG.OLLAMA_URL || 'http://localhost:11434').replace(/\/+$/, '');
+  const MODEL = CFG.OLLAMA_MODEL || 'qwen2.5:7b';
+  const LLM_TIMEOUT_MS = 20000;
+  // 'auto' проверяет Ollama, только когда сайт открыт на этом же компьютере (localhost):
+  // у посетителей опубликованного сайта Ollama нет — незачем стучаться к ним в localhost
+  const LOCAL_PAGE = /^(localhost|127\.0\.0\.1|\[::1\])$/.test((window.location && window.location.hostname) || '');
+  const llm = { state: AI_MODE === 'script' ? 'off' : AI_MODE === 'local' ? 'on' : (LOCAL_PAGE ? 'checking' : 'off'), ready: null };
+
+  function withTimeout(ms) {
+    const c = new AbortController();
+    const t = setTimeout(() => c.abort(), ms);
+    return { signal: c.signal, done: () => clearTimeout(t) };
+  }
+  /* 'auto': есть ли Ollama и нужная модель — один раз при загрузке */
+  llm.ready = (async () => {
+    if (llm.state !== 'checking') { if (llm.state === 'on') setTimeout(warmUp, 0); return; }   // 'local' — тоже прогреваем
+    let t = { done() {} };
+    try {
+      t = withTimeout(2500);
+      const r = await fetch(OLLAMA + '/api/tags', { signal: t.signal });
+      const data = r.ok ? await r.json() : null;
+      const names = data && Array.isArray(data.models) ? data.models.map(m => m.name || m.model) : [];
+      llm.state = names.some(n => n === MODEL || n === MODEL + ':latest') ? 'on' : 'off';
+      if (llm.state === 'on') setTimeout(warmUp, 0);     // в фоне, страницу не задерживает
+    } catch (e) {
+      llm.state = 'off';                                  // Ollama не запущена — тихо работаем по сценарию
+    } finally { t.done(); }
+  })();
+
+  /* правила — те же, что у сценария */
+  function systemPrompt() {
+    const catalog = ALL.map(p =>
+      p.id + '|' + p.name + '|' + MK.catName(p.cat) + '|' + (p.flavors.length ? p.flavors.join(',') : '-') +
+      '|' + MK.weightOptions(p)[0] + '|' + p.perKg).join('\n');
+    return [
+      'Ты — помощник кондитерской «Моя кондитерская» на сайте. Помогаешь выбрать торт из каталога ниже. Отвечай по-русски, коротко: 1–3 предложения, дружелюбно, без канцелярита.',
+      '',
+      'ПРАВИЛА:',
+      '1. Гости: до 7 человек — один торт; 8–15 — один торт побольше; 16–30 — предложи два разных торта и честно скажи, что два обычно немного дороже одного большого; больше 30 — несколько тортов или многоярусный, на выбор.',
+      '2. Если человек сам назвал число тортов — это закон, подбирай ровно столько. Бюджет — на все торты вместе. Никогда не поднимай бюджет за человека и не уговаривай взять дороже.',
+      '3. Не торопи («успейте», «осталось мало» — нельзя). Не выдумывай скидки, акции, подарки, промокоды.',
+      '4. Ты НЕ знаешь состав, аллергены, глютен, сахар, лактозу, калорийность, хранение, сроки приготовления, предоплату, отмену, доставку за город. На такие вопросы отвечай: «Про это лучше спросить кондитера — я помогаю с выбором торта.» и предложи подобрать торт. Ничего не выдумывай.',
+      '5. На вопросы не про торты (политика, погода, новости и т. п.) отвечай: «Про это лучше спросить кондитера — я помогаю с выбором торта. Подобрать?» и не отвечай по существу.',
+      '6. Про адрес, телефон, часы работы: «Это демо-сайт, реальные контакты владелец заполнит сам.»',
+      '7. НЕ пиши в reply цены, рубли, вес, килограммы и суммы — карточки с ценой и весом сайт покажет сам по id из cakes.',
+      '8. В cakes — только id из каталога, 0–3 штуки, в порядке рекомендации. Учитывай вкус, повод и бюджет (цена торта ≈ цена за кг × вес; вес ≈ 0,18 кг на человека, не меньше минимального). Если чего-то не хватает для подбора — сначала спроси (сколько гостей, какой вкус, есть ли бюджет), cakes оставь пустым.',
+      '9. Если вопрос не про подбор (пункты 4–6) — cakes пустой.',
+      '10. В understood — только то, что человек сказал явно: guests (число гостей), cakes (число тортов), budget (максимум в рублях). Чего не было — null.',
+      '',
+      'ОТВЕЧАЙ ТОЛЬКО JSON без пояснений:',
+      '{"reply": "текст для человека", "cakes": ["id"], "understood": {"guests": null, "cakes": null, "budget": null}}',
+      '',
+      'КАТАЛОГ (id|название|категория|вкус|мин. вес, кг|цена за кг, ₽):',
+      catalog
+    ].join('\n');
+  }
+
+  /* история диалога — последние реплики, чтобы модель помнила, о чём говорили */
+  function history() {
+    return state.entries.filter(e => e.r === 'bot' || e.r === 'me').slice(-10)
+      .map(e => ({ role: e.r === 'me' ? 'user' : 'assistant', content: String(e.t).slice(0, 600) }));
+  }
+
+  const LLM_OPTS = { temperature: 0.3, num_ctx: 4096 };
+  const KEEP = '30m';                                   // модель не выгружается из памяти 30 минут
+  /* прогрев: модель загружается в память и один раз читает инструкцию —
+     дальше вопросы отвечаются быстрее (Ollama переиспользует прочитанное начало) */
+  function warmUp() {
+    try {
+      fetch(OLLAMA + '/api/chat', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: MODEL, stream: false, keep_alive: KEEP,
+          options: Object.assign({ num_predict: 1 }, LLM_OPTS),
+          messages: [{ role: 'system', content: systemPrompt() }, { role: 'user', content: 'Здравствуйте' }] })
+      }).catch(() => {});
+    } catch (e) {}
+  }
+
+  const intOr = (v, lo, hi) => { const n = Math.round(Number(v)); return Number.isFinite(n) && n >= lo && n <= hi ? n : null; };
+
+  async function askModel() {
+    if (hooks.llmFail === 'error') throw new Error('test: модель недоступна');
+    const t = withTimeout(LLM_TIMEOUT_MS);
+    let content;
+    try {
+      const r = await fetch(OLLAMA + '/api/chat', {
+        method: 'POST', signal: t.signal,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: MODEL, stream: false, format: 'json', keep_alive: KEEP,
+          options: Object.assign({ num_predict: 220 }, LLM_OPTS),
+          messages: [{ role: 'system', content: systemPrompt() }].concat(history())
+        })
+      });
+      if (!r.ok) throw new Error('ollama ' + r.status);
+      content = (await r.json()).message.content;
+    } finally { t.done(); }
+    if (hooks.llmFail === 'badjson') content = 'не json {';
+    const j = JSON.parse(content);                       // не JSON — исключение, откат на сценарий
+    const reply = typeof j.reply === 'string' ? j.reply.replace(/\s+/g, ' ').trim().slice(0, 600) : '';
+    if (!reply) throw new Error('модель: пустой reply');
+    const cakes = (Array.isArray(j.cakes) ? j.cakes : [])
+      .map(String).filter((id, i, a) => ALL.some(p => p.id === id) && a.indexOf(id) === i).slice(0, 3);   // чужие id — пропускаем
+    const u = j.understood && typeof j.understood === 'object' ? j.understood : {};
+    return { reply: reply, cakes: cakes,
+             understood: { guests: intOr(u.guests, 1, 300), cakes: intOr(u.cakes, 1, 10), budget: intOr(u.budget, 300, 1000000) } };
+  }
+
+  /* темы, где модель может навредить выдумкой: аллергены, состав, диеты, здоровье */
+  const RISKY = /глютен|аллерг|лактоз|без сахар|сахарозам|диабет|орех|арахис|состав|ингредиент|калори|ккал|веган|постн|халял|кошер|беремен/;
+
+  async function viaModelOrScript(raw, echo) {
+    if (llm.state === 'checking') { try { await llm.ready; } catch (e) { llm.state = 'off'; } }
+    const text = clip(raw);
+    // пустое, смайлики, «начать заново» и вопросы, где нельзя ошибиться (состав, аллергены, сроки,
+    // скидки, контакты), — честный ответ сценария; модели такие вопросы не доверяем
+    const nt = norm(text);
+    if (llm.state !== 'on' || !text || EMOJI_ONLY(text) || INTENT.restart.test(nt) ||
+        INTENT.composition.test(nt) || INTENT.discount.test(nt) || INTENT.lead.test(nt) || INTENT.contacts.test(nt) ||
+        RISKY.test(nt)) return onText(raw, echo);
+    me(text, echo);
+    let res = null;
+    try { res = await askModel(); }
+    catch (err) { console.error('[assistant] модель не ответила — отвечает сценарий', err); }
+    if (zombie) return;
+    if (!res || TECH.test(res.reply.replace(/[\s  ]+/g, ' ')) || RISKY.test(norm(res.reply))) {
+      return onText(text, false);                         // откат: человек видит обычный ответ сценария
+    }
+    // факты из ответа модели — в общее состояние, чтобы кнопки сценария продолжали с того же места
+    const f = F(), u = res.understood;
+    if (u.guests) setGuests(u.guests, false);
+    if (u.cakes) setCakes(u.cakes);
+    if (u.budget) setBudget({ max: u.budget });
+    state.misses = 0;
+    save();
+
+    await say(res.reply);
+    if (!res.cakes.length) {
+      return chips(/^(start|browse|done)$/.test(state.ask) ? [['Подобрать торт', 'choose'], ['Сколько стоит торт?', 'price']] : chipsFor(state.ask));
+    }
+    // карточки и все числа — из data.js
+    // набор — только если человек сам просил несколько тортов; иначе это варианты на выбор,
+    // и каждый считается на всех гостей, без общей суммы
+    const k = res.cakes.length, asSet = (f.cakes || 1) > 1 && k > 1;
+    const g = f.guests ? Math.max(1, asSet ? Math.ceil(f.guests / f.cakes) : f.guests) : null;
+    recs(res.cakes.map(id => ({ id: id, g: g, why: '' })), asSet || k < 2 ? '' : 'Варианты на выбор');
+    if (asSet) {
+      const opts = res.cakes.map(id => option(ALL.find(p => p.id === id), g || 1));
+      const sumAll = opts.reduce((t, o) => t + o.sum, 0), wAll = opts.reduce((t, o) => t + o.w, 0);
+      let line = 'Вместе: ' + opts.map(o => num(o.sum)).join(' + ') + ' = ' + money(sumAll) + ', ' + kg(wAll) + '.';
+      if (f.budget && f.budget.max) line += sumAll <= f.budget.max ? ' В бюджет ' + money(f.budget.max) + ' укладываемся.' : ' Это больше бюджета ' + money(f.budget.max) + ' на ' + money(sumAll - f.budget.max) + '.';
+      await say(line);
+      // набор дороже бюджета — как в сценарии: предложить пересобрать на меньшее число тортов
+      if (f.budget && f.budget.max && sumAll > f.budget.max) {
+        state.pending = { kind: 'over', set: res.cakes.slice(), k: k };
+        state.ask = 'over'; save();
+        return chips([['Взять меньше тортов', 'o:fewer'], ['Подобрать другие', 'choose'], ['Не надо', 'o:no']]);
+      }
+    }
+    state.ask = 'done'; save();
+    return chips([['Подобрать другие', 'choose'], ['Начать заново', 'reset']]);
+  }
+
   /* ═════════════════════════ НАДЁЖНОСТЬ ═════════════════════════
      Каждое действие человека идёт через run():
      — любой сбой ловится, в чат идёт обычная фраза и кнопки, подробности — в console.error;
@@ -1242,12 +1414,14 @@
      Таймаут пригодится, когда вместо сценария подключат настоящую модель. */
   const TIMEOUT_MS = 8000;
   const TIMED_OUT = {};
-  const hooks = { slow: 0, boom: false };        // только для тестов: задержка и искусственный сбой
+  const hooks = { slow: 0, boom: false, llmFail: null };   // только для тестов: задержка, сбой, сбой модели
+  // с моделью ответ готовится дольше: её собственный таймаут 20 с, общий — с запасом на откат
+  const timeoutMs = () => (llm.state === 'on' ? LLM_TIMEOUT_MS + 5000 : TIMEOUT_MS);
   let active = null, lastAction = null;
 
   function exec(a) {
     switch (a.kind) {
-      case 'text':  return onText(a.v, a.echo);
+      case 'text':  return viaModelOrScript(a.v, a.echo);
       case 'chip':  return onChip(a.v, a.label, a.echo);
       case 'reset': return restart();
       case 'start': return ask('start');
@@ -1309,7 +1483,7 @@
           timer = setTimeout(function check() {
             if (!cur.started) res(TIMED_OUT);
             else timer = 0;                              // ответ уже пошёл — ждём его до конца
-          }, TIMEOUT_MS);
+          }, timeoutMs());
         });
         const r = await Promise.race([work, timeout]);
         if (r === TIMED_OUT) {
@@ -1525,6 +1699,7 @@
   window.MKChat = {
     streamText: streamText, open: openChat, close: closeChat, reset: restart,
     _t: { extract, parseAmount, tokenize, pickSingle, combos, whyOne, whySlot, sizeNote, option, compare, P_MIN, P_MAX, INTENT,
-          send: onText, chip: onChip, state: () => state, run: run, hooks: hooks, idle: () => chain }
+          send: onText, chip: onChip, state: () => state, run: run, hooks: hooks, idle: () => chain,
+          llm: () => llm.state, llmReady: () => llm.ready, systemPrompt: systemPrompt }
   };
 })();
